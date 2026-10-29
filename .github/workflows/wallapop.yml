@@ -2,12 +2,12 @@ name: wallapop
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/5 * * * *"   # relevo: si no hay ejecución en marcha, arranca otra
   workflow_dispatch:
 
 concurrency:
   group: wallapop
-  cancel-in-progress: false
+  cancel-in-progress: false  # una en marcha + otra en cola, nunca dos a la vez
 
 permissions:
   contents: write
@@ -15,7 +15,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
 
@@ -26,13 +26,16 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Comprobar Wallapop
-        run: python check.py
+      - name: Comprobar Wallapop (bucle)
+        run: python -u check.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          LOOP_SECONDS: "19800"   # 5 h 30 min por ejecución
+          CHECK_INTERVAL: "10"    # segundos entre comprobaciones
 
       - name: Guardar estado
+        if: always()
         run: |
           git config user.name "wallapop-bot"
           git config user.email "wallapop-bot@users.noreply.github.com"
