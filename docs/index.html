@@ -1,0 +1,64 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wallapop Bots</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#1a1d21;--mut:#6b7280;--ac:#0fb5a2;--bd:#e3e6ea;--rd:#e5484d}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1214;--card:#181c20;--tx:#eceef0;--mut:#9aa3ad;--bd:#2a3036}}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+main{max-width:640px;margin:0 auto;padding:20px 14px}h1{font-size:22px;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+input{width:100%;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+.row{display:flex;gap:8px;margin-top:8px}label{font-size:12px;color:var(--mut)}
+button{border:0;border-radius:8px;padding:9px 13px;background:var(--ac);color:#fff;font:inherit;cursor:pointer}
+button.g{background:var(--bd);color:var(--tx)}button.r{background:var(--rd)}
+.bot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.bot b{display:block}.bot small{color:var(--mut)}.act{display:flex;gap:6px}
+#m{min-height:20px;font-size:13px;color:var(--mut)}#m.e{color:var(--rd)}
+</style></head><body><main>
+<h1>🤖 Wallapop Bots</h1>
+<details class="card" id="cfg"><summary>Conexión con GitHub</summary>
+<div class="row"><div style="flex:1"><label>Repo (usuario/nombre)</label><input id="repo"></div></div>
+<div class="row"><div style="flex:1"><label>Token (solo se guarda en este navegador)</label><input id="tok" type="password"></div></div>
+<div class="row"><button onclick="load()">Guardar y conectar</button></div></details>
+<div class="card"><b>Nuevo bot</b>
+<div class="row"><div style="flex:2"><label>Búsqueda</label><input id="kw" placeholder="mario party"></div>
+<div><label>Mín €</label><input id="mn" type="number" value="0"></div>
+<div><label>Máx €</label><input id="mx" type="number" value="1000"></div></div>
+<div class="row"><button onclick="add()">Crear</button><button class="g" onclick="load()">↻ Recargar</button></div></div>
+<div id="m"></div><div id="list"></div>
+<p style="color:var(--mut);font-size:12px">Los cambios se aplican en ~30 s. Máx 1000 = sin límite.</p>
+</main><script>
+const $=s=>document.querySelector(s);let cfg=[],sha=null;
+const g=k=>localStorage.getItem(k)||"";
+const guess=location.hostname.endsWith(".github.io")?location.hostname.split(".")[0]+"/"+(location.pathname.split("/")[1]||""):"";
+$("#repo").value=g("repo")||guess;$("#tok").value=g("tok");
+const api=()=>`https://api.github.com/repos/${$("#repo").value.trim()}/contents/data/config.json`;
+const hd=()=>({Authorization:"Bearer "+$("#tok").value.trim(),Accept:"application/vnd.github+json"});
+const msg=(t,e)=>{$("#m").textContent=t;$("#m").className=e?"e":""};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function load(){
+ try{localStorage.setItem("repo",$("#repo").value.trim());localStorage.setItem("tok",$("#tok").value.trim())}catch(e){}
+ msg("Cargando…");
+ const r=await fetch(api(),{headers:hd(),cache:"no-store"});
+ if(r.status==404){cfg=[];sha=null}
+ else if(!r.ok){msg("Error "+r.status+": revisa repo y token",1);$("#cfg").open=true;return}
+ else{const j=await r.json();sha=j.sha;cfg=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))}
+ render();msg("");
+}
+async function push(t){
+ const b={message:t,content:btoa(unescape(encodeURIComponent(JSON.stringify(cfg,null,2))))};if(sha)b.sha=sha;
+ const r=await fetch(api(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
+ if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await load();return}
+ sha=(await r.json()).content.sha;render();msg("Guardado ✓ (se aplica en ~30 s)");
+}
+function render(){
+ $("#list").innerHTML=cfg.length?cfg.map((b,i)=>`<div class="card bot"><div><b>${esc(b.keywords)}</b>
+ <small>${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"} · ${b.status=="paused"?"⏸ pausado":"▶️ activo"}</small></div>
+ <div class="act"><button class="g" onclick="tog(${i})">${b.status=="paused"?"Reanudar":"Pausar"}</button><button class="r" onclick="del(${i})">Borrar</button></div></div>`).join(""):'<div class="card">No hay bots todavía.</div>';
+}
+function add(){const k=$("#kw").value.trim();if(!k)return;
+ cfg.push({id:Math.random().toString(36).slice(2,10),keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,status:"running"});
+ $("#kw").value="";push("nuevo bot")}
+function tog(i){cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
+function del(i){if(confirm("¿Borrar "+cfg[i].keywords+"?")){cfg.splice(i,1);push("borrar bot")}}
+if(g("tok")&&$("#repo").value)load();else $("#cfg").open=true;
+</script></body></html>
