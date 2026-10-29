@@ -9,6 +9,7 @@ Cada ejecución (cada ~5 min, lanzada por el cron de GitHub):
 Variables de entorno necesarias (GitHub Secrets):
   TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
 """
+import base64
 import hashlib
 import html
 import json
@@ -27,8 +28,11 @@ CHAT_ID = int(os.environ.get("TELEGRAM_CHAT_ID", "0") or 0)
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 DATA_DIR = Path("data")
-BOTS_FILE = DATA_DIR / "bots.json"
-META_FILE = DATA_DIR / "meta.json"
+CFG_FILE = DATA_DIR / "config.json"    # bots definidos (lo editan el panel web y Telegram)
+STATE_FILE = DATA_DIR / "state.json"   # anuncios ya vistos, offset de Telegram...
+REPO = os.environ.get("GITHUB_REPOSITORY", "")
+GH_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status")
 
 ORDER_BY = "newest"
 # Wallapop ha ido cambiando de endpoint; se prueban en orden si uno da 404.
@@ -81,9 +85,9 @@ def save_json(path, data):
 # ======================
 # TELEGRAM
 # ======================
-def tg(method, **params):
+def tg(method, _timeout=20, **params):
     try:
-        r = requests.post(f"{API}/{method}", json=params, timeout=20)
+        r = requests.post(f"{API}/{method}", json=params, timeout=_timeout)
         return r.json()
     except Exception as e:
         print("Error Telegram:", e)
@@ -166,7 +170,11 @@ def parse_nuevo(args):
 # ======================
 def procesar_updates(bots, meta):
     res = tg("getUpdates", offset=meta.get("offset", 0), timeout=0, allowed_updates=["message", "callback_query"])
-    for u in res.get("result", []):
+    manejar_updates(res.get("result", []), bots, meta)
+
+
+def manejar_updates(ups, bots, meta):
+    for u in ups:
         meta["offset"] = u["update_id"] + 1
         try:
             if "message" in u:
@@ -175,6 +183,29 @@ def procesar_updates(bots, meta):
                 on_callback(u["callback_query"], bots)
         except Exception as e:
             print("Error procesando update:", e)
+
+
+def esperar_comandos(bots, meta, hasta):
+    """Espera hasta 'hasta' escuchando Telegram (long-polling): responde al instante."""
+    while time.time() < hasta:
+        espera = int(min(25, hasta - time.time()))
+        if espera < 1:
+            time.sleep(max(0, hasta - time.time()))  # el resto, sin gastar CPU ni peticiones
+            break
+        res = tg("getUpdates", _timeout=espera + 10, offset=meta.get("offset", 0), timeout=espera,
+                 allowed_updates=["message", "callback_query"])
+        if not res:
+            time.sleep(2)  # fallo de red
+            continue
+        ups = res.get("result", [])
+        if not ups:
+            continue
+        remota, sha = leer_config()
+        bots[:] = fusionar(remota, meta)
+        manejar_updates(ups, bots, meta)
+        if cfg_of(bots) != remota:
+            escribir_config(cfg_of(bots), sha)
+        guardar(bots, meta)
 
 
 def on_message(m, bots):
@@ -404,7 +435,7 @@ def git_guardar():
             subprocess.run(a, check=True, capture_output=True)
         run("git", "config", "user.name", "wallapop-bot")
         run("git", "config", "user.email", "wallapop-bot@users.noreply.github.com")
-        run("git", "add", "data")
+        run("git", "add", "data/state.json")
         if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode != 0:
             run("git", "commit", "-m", "estado [skip ci]")
             run("git", "pull", "--rebase", "-X", "theirs")
@@ -416,44 +447,116 @@ def git_guardar():
 # ======================
 # MAIN
 # ======================
+# ======================
+# CONFIG COMPARTIDA (repo, vía API de GitHub) + ESTADO LOCAL
+# ======================
+def norm(cfg):
+    out = []
+    for c in cfg:
+        kw = str(c.get("keywords", "")).strip()
+        if not kw:
+            continue
+        mx = c.get("max_price")
+        st = c.get("status")
+        out.append({
+            "id": str(c.get("id") or hashlib.md5(kw.encode()).hexdigest()[:8]),
+            "keywords": kw,
+            "min_price": int(c.get("min_price") or 0),
+            "max_price": SIN_LIMITE if mx in (None, "") else int(mx),
+            "status": st if st in ("running", "paused") else "running",
+        })
+    return out
+
+
+def _gh(method, **kw):
+    return requests.request(
+        method, f"https://api.github.com/repos/{REPO}/contents/data/config.json",
+        headers={"Authorization": f"Bearer {GH_TOKEN}", "Accept": "application/vnd.github+json"},
+        timeout=20, **kw)
+
+
+def leer_config():
+    if not (REPO and GH_TOKEN):
+        return norm(load_json(CFG_FILE, [])), None
+    r = _gh("GET")
+    if r.status_code == 404:
+        return [], None
+    r.raise_for_status()
+    j = r.json()
+    return norm(json.loads(base64.b64decode(j["content"]).decode("utf-8") or "[]")), j["sha"]
+
+
+def escribir_config(cfg, sha):
+    if not (REPO and GH_TOKEN):
+        save_json(CFG_FILE, cfg)
+        return
+    body = {"message": "config [skip ci]",
+            "content": base64.b64encode(json.dumps(cfg, ensure_ascii=False, indent=2).encode()).decode()}
+    for _ in range(2):
+        if sha:
+            body["sha"] = sha
+        r = _gh("PUT", json=body)
+        if r.status_code in (409, 422):  # alguien (el panel) la cambió a la vez
+            sha = leer_config()[1]
+            continue
+        r.raise_for_status()
+        return
+
+
+def cfg_of(bots):
+    return [{k: b[k] for k in CFG_KEYS} for b in bots]
+
+
+def fusionar(cfg, meta):
+    est = meta.get("bots", {})
+    return [{**c, "seen": est.get(c["id"], {}).get("seen", []),
+             "first_done": est.get(c["id"], {}).get("first_done", False)} for c in cfg]
+
+
 def guardar(bots, meta):
+    meta["bots"] = {b["id"]: {"seen": b.get("seen", []), "first_done": b.get("first_done", False)} for b in bots}
     meta["heartbeat"] = ahora().strftime("%Y-%m-%d")
-    save_json(BOTS_FILE, bots)
-    save_json(META_FILE, meta)
+    save_json(STATE_FILE, meta)
+
+
+def iteracion(bots, meta):
+    remota, sha = leer_config()
+    bots[:] = fusionar(remota, meta)
+    procesar_updates(bots, meta)
+    ok, err = comprobar_bots(bots, meta)
+    if cfg_of(bots) != remota:  # cambios hechos por Telegram -> al repo
+        escribir_config(cfg_of(bots), sha)
+    guardar(bots, meta)
+    return ok, err
 
 
 def main():
     if not TOKEN or not CHAT_ID:
         raise SystemExit("Faltan TELEGRAM_TOKEN / TELEGRAM_CHAT_ID")
-
-    bots = load_json(BOTS_FILE, [])
-    meta = load_json(META_FILE, {})
-
+    meta = load_json(STATE_FILE, {})
+    bots = []
     if LOOP_SECONDS <= 0:
-        procesar_updates(bots, meta)
-        comprobar_bots(bots, meta)
-        guardar(bots, meta)
+        iteracion(bots, meta)
         return
-
     print(f"Modo bucle: {LOOP_SECONDS}s, cada {CHECK_INTERVAL}s")
     fin = time.time() + LOOP_SECONDS
     ultimo_git = time.time()
     while time.time() < fin:
         t0 = time.time()
         try:
-            procesar_updates(bots, meta)
-            ok, err = comprobar_bots(bots, meta)
-            guardar(bots, meta)
+            ok, err = iteracion(bots, meta)
         except Exception as e:
             print("Error en iteración:", e)
             ok, err = 0, 1
         if time.time() - ultimo_git > 600:
             git_guardar()
             ultimo_git = time.time()
-        if err and not ok:
-            time.sleep(60)  # si Wallapop falla, no insistir cada 10 s
-        else:
-            time.sleep(max(0, CHECK_INTERVAL - (time.time() - t0)))
+        pausa = 60 if (err and not ok) else CHECK_INTERVAL
+        try:
+            esperar_comandos(bots, meta, min(t0 + pausa, fin))
+        except Exception as e:
+            print("Error escuchando Telegram:", e)
+            time.sleep(5)
     guardar(bots, meta)
 
 
