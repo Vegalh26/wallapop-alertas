@@ -7,5 +7,14 @@
     "status": "running",
     "first_done": false,
     "seen": []
+  },
+  {
+    "id": "82ac547c",
+    "keywords": "jamboree",
+    "min_price": 0,
+    "max_price": 30,
+    "status": "running",
+    "first_done": false,
+    "seen": []
   }
 ]
