@@ -1,10 +1,13 @@
 {
-  "offset": 694625793,
-  "bloqueado": true,
+  "offset": 694625795,
+  "bloqueado": false,
   "bots": {
-    "8y4fsz01": {
-      "seen": [],
-      "first_done": false
+    "j34ipuod": {
+      "seen": [
+        "4db1c1ec24af5291c2ee48a23734ab6c",
+        "f29768790d62d7f8f0ba1b923becf69d"
+      ],
+      "first_done": true
     }
   },
   "heartbeat": "2026-10-29"
