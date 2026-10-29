@@ -318,10 +318,9 @@ def generar_key(nombre, precio):
 def buscar(keywords, min_price, max_price):
     """Lanza excepción si la API falla (así no confundimos 'error' con 'sin resultados')."""
     params = {
+        "source": "search_box",
         "keywords": keywords,
         "order_by": ORDER_BY,
-        "language": "es_ES",
-        "filters_source": "default_filters",
         "latitude": LAT,
         "longitude": LON,
     }
@@ -340,6 +339,7 @@ def buscar(keywords, min_price, max_price):
             break
         except requests.HTTPError as e:
             ultimo_error = e
+            print("Respuesta de Wallapop:", resp.status_code, resp.text[:300])
             if resp.status_code == 404:
                 continue  # probamos el siguiente endpoint
             raise
