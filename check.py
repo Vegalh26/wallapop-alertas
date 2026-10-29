@@ -13,6 +13,8 @@ import hashlib
 import html
 import json
 import os
+import subprocess
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -39,6 +41,10 @@ SEARCH_URLS = [
 LAT = os.environ.get("WALLAPOP_LAT", "40.4168")
 LON = os.environ.get("WALLAPOP_LON", "-3.7038")
 SIN_LIMITE = 1000
+# LOOP_SECONDS > 0  -> la ejecución se queda en bucle ese tiempo, comprobando cada CHECK_INTERVAL s.
+# LOOP_SECONDS = 0  -> una sola comprobación y termina.
+LOOP_SECONDS = int(os.environ.get("LOOP_SECONDS", "0") or 0)
+CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", "10") or 10)
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
@@ -384,11 +390,38 @@ def comprobar_bots(bots, meta):
     elif ok > 0 and meta.get("bloqueado"):
         meta["bloqueado"] = False
         send("✅ Wallapop vuelve a responder.")
+    return ok, len(errores)
+
+
+# ======================
+# GIT (guardar estado a mitad de bucle para no perderlo si se corta la ejecución)
+# ======================
+def git_guardar():
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return
+    try:
+        def run(*a):
+            subprocess.run(a, check=True, capture_output=True)
+        run("git", "config", "user.name", "wallapop-bot")
+        run("git", "config", "user.email", "wallapop-bot@users.noreply.github.com")
+        run("git", "add", "data")
+        if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode != 0:
+            run("git", "commit", "-m", "estado [skip ci]")
+            run("git", "pull", "--rebase", "-X", "theirs")
+            run("git", "push")
+    except Exception as e:
+        print("Aviso git:", e)
 
 
 # ======================
 # MAIN
 # ======================
+def guardar(bots, meta):
+    meta["heartbeat"] = ahora().strftime("%Y-%m-%d")
+    save_json(BOTS_FILE, bots)
+    save_json(META_FILE, meta)
+
+
 def main():
     if not TOKEN or not CHAT_ID:
         raise SystemExit("Faltan TELEGRAM_TOKEN / TELEGRAM_CHAT_ID")
@@ -396,14 +429,32 @@ def main():
     bots = load_json(BOTS_FILE, [])
     meta = load_json(META_FILE, {})
 
-    procesar_updates(bots, meta)
-    comprobar_bots(bots, meta)
+    if LOOP_SECONDS <= 0:
+        procesar_updates(bots, meta)
+        comprobar_bots(bots, meta)
+        guardar(bots, meta)
+        return
 
-    # Un cambio al día para que el repo siga "activo" y GitHub no desactive el cron
-    meta["heartbeat"] = ahora().strftime("%Y-%m-%d")
-
-    save_json(BOTS_FILE, bots)
-    save_json(META_FILE, meta)
+    print(f"Modo bucle: {LOOP_SECONDS}s, cada {CHECK_INTERVAL}s")
+    fin = time.time() + LOOP_SECONDS
+    ultimo_git = time.time()
+    while time.time() < fin:
+        t0 = time.time()
+        try:
+            procesar_updates(bots, meta)
+            ok, err = comprobar_bots(bots, meta)
+            guardar(bots, meta)
+        except Exception as e:
+            print("Error en iteración:", e)
+            ok, err = 0, 1
+        if time.time() - ultimo_git > 600:
+            git_guardar()
+            ultimo_git = time.time()
+        if err and not ok:
+            time.sleep(60)  # si Wallapop falla, no insistir cada 10 s
+        else:
+            time.sleep(max(0, CHECK_INTERVAL - (time.time() - t0)))
+    guardar(bots, meta)
 
 
 if __name__ == "__main__":
