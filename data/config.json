@@ -5,5 +5,12 @@
     "min_price": 0,
     "max_price": 35,
     "status": "running"
+  },
+  {
+    "id": "eftewy19",
+    "keywords": "banana fish",
+    "min_price": 0,
+    "max_price": 1000,
+    "status": "running"
   }
 ]
