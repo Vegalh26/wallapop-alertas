@@ -1,1 +1,11 @@
-{}
+{
+  "offset": 694625793,
+  "bloqueado": true,
+  "bots": {
+    "8y4fsz01": {
+      "seen": [],
+      "first_done": false
+    }
+  },
+  "heartbeat": "2026-10-29"
+}
