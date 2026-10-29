@@ -29,6 +29,15 @@ BOTS_FILE = DATA_DIR / "bots.json"
 META_FILE = DATA_DIR / "meta.json"
 
 ORDER_BY = "newest"
+# Wallapop ha ido cambiando de endpoint; se prueban en orden si uno da 404.
+SEARCH_URLS = [
+    "https://api.wallapop.com/api/v3/search",
+    "https://api.wallapop.com/api/v3/general/search",
+]
+# Coordenadas de referencia de la búsqueda (por defecto Madrid). Se pueden cambiar con
+# las variables WALLAPOP_LAT / WALLAPOP_LON.
+LAT = os.environ.get("WALLAPOP_LAT", "40.4168")
+LON = os.environ.get("WALLAPOP_LON", "-3.7038")
 SIN_LIMITE = 1000
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -232,12 +241,35 @@ def on_callback(cq, bots):
 # ======================
 # WALLAPOP
 # ======================
+def _tiene_titulo(x):
+    return isinstance(x, dict) and "title" in x.get("content", x)
+
+
+def _buscar_lista_items(obj):
+    """Busca recursivamente la primera lista de anuncios (por si Wallapop cambia la estructura)."""
+    if isinstance(obj, list):
+        if obj and all(isinstance(x, dict) for x in obj) and any(_tiene_titulo(x) for x in obj):
+            return obj
+        for x in obj:
+            r = _buscar_lista_items(x)
+            if r:
+                return r
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            r = _buscar_lista_items(v)
+            if r:
+                return r
+    return []
+
+
 def extraer_items(data):
     return (
         data.get("search_objects")
         or data.get("data", {}).get("search_objects")
         or data.get("data", {}).get("section", {}).get("items")
+        or data.get("data", {}).get("section", {}).get("payload", {}).get("items")
         or data.get("items")
+        or _buscar_lista_items(data)
         or []
     )
 
@@ -253,18 +285,33 @@ def buscar(keywords, min_price, max_price):
         "order_by": ORDER_BY,
         "language": "es_ES",
         "filters_source": "default_filters",
+        "latitude": LAT,
+        "longitude": LON,
     }
     if min_price > 0:
         params["min_sale_price"] = min_price
     if max_price < SIN_LIMITE:
         params["max_sale_price"] = max_price
 
-    resp = requests.get(
-        "https://api.wallapop.com/api/v3/general_search/search",
-        params=params, headers=HEADERS, timeout=20,
-    )
-    resp.raise_for_status()
-    items = extraer_items(resp.json())
+    ultimo_error = None
+    data = None
+    for url in SEARCH_URLS:
+        try:
+            resp = requests.get(url, params=params, headers=HEADERS, timeout=20)
+            resp.raise_for_status()
+            data = resp.json()
+            break
+        except requests.HTTPError as e:
+            ultimo_error = e
+            if resp.status_code == 404:
+                continue  # probamos el siguiente endpoint
+            raise
+    if data is None:
+        raise ultimo_error
+
+    items = extraer_items(data)
+    if not items:
+        print("Respuesta sin anuncios. Claves:", list(data.keys())[:10], "->", str(data)[:300])
 
     resultados = []
     for item in items:
