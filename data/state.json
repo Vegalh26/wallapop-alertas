@@ -3,7 +3,9 @@
   "bloqueado": false,
   "bots": {
     "j34ipuod": {
-      "seen": [],
+      "seen": [
+        "1a4e02bec53d5ffa9a68bb7eb297dddb"
+      ],
       "first_done": true
     },
     "eftewy19": {
