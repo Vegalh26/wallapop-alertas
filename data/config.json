@@ -30,5 +30,17 @@
     "source": "ambos",
     "lang_mode": "off",
     "langs": []
+  },
+  {
+    "id": "keshrwu4",
+    "status": "running",
+    "keywords": "yona 27",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "solo",
+    "langs": [
+      "es"
+    ]
   }
 ]
