@@ -43,6 +43,20 @@ button.ic{min-height:40px;padding:0 12px;font-size:14px}.w{width:100%;margin-top
 a{color:var(--mut);font-size:13px}
 #m{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#1d2228;color:#fff;padding:11px 18px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;max-width:90vw;z-index:9;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 #m.show{opacity:1;transform:translate(-50%,0)}#m.e{background:var(--rd)}
+main.wide{max-width:1100px}
+.tabs{grid-template-columns:1fr 1fr;margin-bottom:14px}.tabs button{min-height:44px;font-size:14px}
+.fl{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.fl::-webkit-scrollbar{display:none}
+.fl button{min-height:36px;padding:0 14px;border-radius:99px;font-size:13px;white-space:nowrap;background:var(--card);color:var(--mut);border:1px solid var(--bd);box-shadow:none}
+.fl button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.grid{column-count:2;column-gap:12px}@media(min-width:760px){.grid{column-count:3}}@media(min-width:1000px){.grid{column-count:4}}
+.pin{break-inside:avoid;margin-bottom:12px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--bd);display:block;color:inherit;text-decoration:none;box-shadow:var(--sh);transition:.15s}
+.pin:active{transform:scale(.98)}@media(hover:hover){.pin:hover{transform:translateY(-3px)}}
+.ph{position:relative;background:var(--soft)}.ph img{width:100%;display:block;min-height:110px;object-fit:cover}
+.ph.noimg{height:150px;display:grid;place-items:center;background:linear-gradient(135deg,var(--soft),var(--bd))}.ph.noimg::after{content:"🛍️";font-size:34px;opacity:.6}
+.pr{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.75);color:#fff;border-radius:99px;padding:3px 10px;font-weight:700;font-size:13px}
+.pl{position:absolute;right:8px;top:8px;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;color:#fff}.pl.w{background:var(--ac2)}.pl.v{background:var(--vi)}
+.nw{position:absolute;left:8px;top:8px;background:var(--rd);color:#fff;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700}
+.pb{padding:10px 12px 12px}.pb b{font-size:14px;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}.pb small{display:block;margin-top:6px;color:var(--mut);font-size:12px}
 </style></head><body><main>
 
 <section id="lock" class="lock hide"><div class="logo">🤖</div><h1>Wallapop Bots</h1><p class="sub">Alertas de Wallapop y Vinted</p>
@@ -57,21 +71,23 @@ a{color:var(--mut);font-size:13px}
 
 <section id="app" class="hide">
 <div class="top"><div class="logo">🤖</div><div><h1>Wallapop Bots</h1><small>Wallapop + Vinted</small></div><button class="g ic" onclick="lock()">🔒 Salir</button></div>
-<div class="stats"><div class="stat"><b id="s1">0</b><span>Activos</span></div><div class="stat"><b id="s2">0</b><span>Pausados</span></div><div class="stat"><b id="s3">0</b><span>Total</span></div></div>
+<div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')">🤖 Mis bots</button><button id="tb2" onclick="setTab('feed')">✨ Novedades</button></div>
+<div id="tabBots"><div class="stats"><div class="stat"><b id="s1">0</b><span>Activos</span></div><div class="stat"><b id="s2">0</b><span>Pausados</span></div><div class="stat"><b id="s3">0</b><span>Total</span></div></div>
 <div class="card"><h2 id="ft">Nuevo bot</h2>
  <label>Qué buscas</label><input id="kw" placeholder="mario party" enterkeyhint="done">
  <div class="row"><div><label>Mín €</label><input id="mn" type="number" inputmode="numeric" value="0"></div><div><label>Máx €</label><input id="mx" type="number" inputmode="numeric" value="1000"></div></div>
  <label>Dónde buscar</label><input type="hidden" id="src" value="ambos">
  <div class="seg" id="seg"><button class="on" data-v="ambos" onclick="setSrc('ambos')">Ambas</button><button data-v="wallapop" onclick="setSrc('wallapop')">Wallapop</button><button data-v="vinted" onclick="setSrc('vinted')">Vinted</button></div>
  <div class="row" style="margin-top:16px"><button id="sv" onclick="add()">Crear bot</button><button id="cn" class="g hide" onclick="cancelEdit()">Cancelar</button><button class="g" style="flex:.45" onclick="load()" title="Recargar">↻</button></div></div>
-<div id="list"></div>
+<div id="list"></div></div>
+<div id="tabFeed" class="hide"><div class="fl" id="fl"></div><div class="grid" id="grid"></div></div>
 <p style="color:var(--mut);font-size:12px;text-align:center">Máx 1000 = sin límite · Los cambios se aplican en segundos · Se bloquea solo tras 5 min</p>
 </section></main><div id="m"></div>
 <script>
 const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder();
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt;
+let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt,feed=[],fKw="",fPl="",tab="bots",fiv;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
 async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:200000,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])}
@@ -81,7 +97,7 @@ async function unseal(o,p){return dec.decode(await crypto.subtle.decrypt({name:"
 const hd=()=>({Authorization:"Bearer "+TOK,Accept:"application/vnd.github+json"});
 const api=()=>`https://api.github.com/repos/${REPO}/contents/data/config.json`;
 function msg(t,e){const m=$("#m");clearTimeout(mt);if(!t){m.classList.remove("show");return}m.textContent=t;m.className="show"+(e?" e":"");mt=setTimeout(()=>m.classList.remove("show"),e?5000:2500)}
-function showLock(){clearTimeout(idle);TOK="";cfg=[];$("#app").classList.add("hide");$("#lock").classList.remove("hide");
+function showLock(){setTab("bots");clearTimeout(idle);TOK="";cfg=[];$("#app").classList.add("hide");$("#lock").classList.remove("hide");
  const s=store();$("#first").classList.toggle("hide",!!s);$("#again").classList.toggle("hide",!s);$("#forget").classList.toggle("hide",!s);$("#lm").textContent="";
  $("#pin1").value=$("#pin2").value="";if(!s){const g=location.hostname.endsWith(".github.io")?location.hostname.split(".")[0]+"/"+(location.pathname.split("/")[1]||""):"";$("#repo").value=g;$("#tok").value=""}}
 function lock(){showLock()}
@@ -119,6 +135,28 @@ function render(){const a=cfg.filter(b=>b.status!="paused").length;$("#s1").text
  <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip w">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip v">🟣 Vinted</span>':""}</div>
  <div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${p?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`}).join("")
  :'<div class="card empty"><div class="big">🔍</div><b>Aún no tienes bots</b><br>Crea el primero arriba y te avisaré por Telegram.</div>'}
+const apiF=()=>`https://api.github.com/repos/${REPO}/contents/data/results.json`;
+const safe=u=>/^https:\/\//.test(u||"")?u:"";
+function ago(t){const m=Math.max(0,Math.round((Date.now()/1000-t)/60));return m<1?"ahora":m<60?"hace "+m+" min":m<1440?"hace "+Math.round(m/60)+" h":"hace "+Math.round(m/1440)+" d"}
+function setTab(x){tab=x;clearInterval(fiv);if(!$("#tabBots"))return;
+ $("#tabBots").classList.toggle("hide",x!="bots");$("#tabFeed").classList.toggle("hide",x!="feed");
+ $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");document.querySelector("main").classList.toggle("wide",x=="feed");
+ if(x=="feed"&&TOK){loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}}
+async function loadFeed(silent){
+ try{const r=await fetch(apiF(),{headers:hd(),cache:"no-store"});
+  if(r.status==404)feed=[];else if(!r.ok){if(!silent)msg("Error "+r.status+" al leer novedades",1);return}
+  else{const j=await r.json();feed=(JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))||{}).items||[]}
+  renderFeed()}catch(e){if(!silent)msg("Sin conexión",1)}}
+function renderFeed(){const kws=[...new Set(feed.map(x=>x.kw))];
+ if(fKw&&!kws.includes(fKw))fKw="";
+ const chip=(l,on,fn)=>`<button class="${on?"on":""}" onclick="${fn}">${l}</button>`;
+ $("#fl").innerHTML=chip("Todo",!fKw&&!fPl,"fKw='';fPl='';renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
+  +kws.map((k,i)=>chip(esc(k),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("");window.kws_=kws;
+ const L=feed.filter(x=>(!fKw||x.kw==fKw)&&(!fPl||x.p==fPl));
+ $("#grid").innerHTML=L.length?L.map(x=>{const w=x.p!="Vinted",im=safe(x.im),nw=Date.now()/1000-x.t<600;
+  return`<a class="pin" href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
+  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"w":"v"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}</div>
+  <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}</small></div></a>`}).join(""):'<div class="card empty" style="column-span:all"><div class="big">✨</div><b>Aún no hay novedades</b><br>Cuando el bot encuentre anuncios aparecerán aquí.</div>'}
 function setSrc(v){$("#src").value=v;document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x.dataset.v==v))}
 function add(){const k=$("#kw").value.trim();if(!k){$("#kw").focus();return}
  const d={keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,source:$("#src").value};
