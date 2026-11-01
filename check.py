@@ -32,7 +32,9 @@ CFG_FILE = DATA_DIR / "config.json"    # bots definidos (lo editan el panel web 
 STATE_FILE = DATA_DIR / "state.json"   # anuncios ya vistos, offset de Telegram...
 REPO = os.environ.get("GITHUB_REPOSITORY", "")
 GH_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status")
+CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status", "source")
+FUENTES = ("wallapop", "vinted", "ambos")
+VINTED_TLD = os.environ.get("VINTED_TLD", "es")
 
 ORDER_BY = "newest"
 # Wallapop ha ido cambiando de endpoint; se prueban en orden si uno da 404.
@@ -121,11 +123,15 @@ def fmt_max(m):
     return "sin límite" if m == SIN_LIMITE else f"{m}€"
 
 
+ETIQ = {"wallapop": "Wallapop", "vinted": "Vinted", "ambos": "Wallapop + Vinted"}
+
+
 def bot_text(b):
     emoji = {"running": "▶️", "paused": "⏸"}.get(b["status"], "❓")
     return (
         f"🤖 <b>{esc(b['keywords'])}</b>\n"
         f"💰 {b['min_price']}€ – {fmt_max(b['max_price'])}\n"
+        f"🔎 {ETIQ.get(b.get('source', 'ambos'))}\n"
         f"Estado: {emoji} {b['status']}"
     )
 
@@ -235,6 +241,7 @@ def on_message(m, bots):
             "min_price": mn,
             "max_price": mx,
             "status": "running",
+            "source": "ambos",
             "first_done": False,
             "seen": [],
         })
@@ -311,8 +318,13 @@ def extraer_items(data):
     )
 
 
-def generar_key(nombre, precio):
-    return hashlib.md5(f"{nombre}-{precio}".encode()).hexdigest()
+def generar_key(nombre, precio, plat="Wallapop"):
+    pre = "" if plat == "Wallapop" else plat + "|"  # las claves de Wallapop no cambian
+    return hashlib.md5(f"{pre}{nombre}-{precio}".encode()).hexdigest()
+
+
+def key_de(r):
+    return generar_key(r["nombre"], r["precio"], r.get("plat", "Wallapop"))
 
 
 def buscar(keywords, min_price, max_price):
@@ -369,32 +381,107 @@ def buscar(keywords, min_price, max_price):
             "nombre": titulo,
             "precio": precio,
             "enlace": f"https://es.wallapop.com/item/{slug}",
+            "plat": "Wallapop",
         })
     return resultados
 
 
+# ---------- VINTED ----------
+_vinted = {"s": None, "t": 0}
+
+
+def _vinted_sesion():
+    if _vinted["s"] and time.time() - _vinted["t"] < 1800:
+        return _vinted["s"]
+    s = requests.Session()
+    s.headers.update({"User-Agent": HEADERS["User-Agent"], "Accept-Language": "es-ES,es;q=0.9"})
+    r = s.get(f"https://www.vinted.{VINTED_TLD}/", timeout=20)
+    r.raise_for_status()
+    s.anon = r.headers.get("X-Anon-Id", "")
+    _vinted.update(s=s, t=time.time())
+    return s
+
+
+def buscar_vinted(keywords, min_price, max_price):
+    base = f"https://www.vinted.{VINTED_TLD}"
+    params = {"search_text": keywords, "order": "newest_first", "per_page": 24, "page": 1}
+    if min_price > 0:
+        params["price_from"] = min_price
+    if max_price < SIN_LIMITE:
+        params["price_to"] = max_price
+    urls = [f"https://api.vinted.{VINTED_TLD}/svc-catalogue/items", f"{base}/api/v2/catalog/items"]
+    resp = None
+    for url in urls:
+        for intento in range(2):
+            s = _vinted_sesion()
+            h = {"Accept": "application/json, text/plain, */*", "Locale": "es-ES", "Platform": "web",
+                 "X-Next-App": "marketplace-web", "Origin": base, "Referer": base + "/"}
+            if s.anon:
+                h["X-Anon-Id"] = s.anon
+            resp = s.get(url, params=params, headers=h, timeout=20)
+            if resp.status_code in (401, 403) and intento == 0:
+                _vinted["s"] = None  # renovar cookies y reintentar
+                continue
+            break
+        if resp.status_code != 404:
+            break
+    if resp.status_code >= 400:
+        print("Respuesta de Vinted:", resp.status_code, resp.text[:200])
+    resp.raise_for_status()
+    items = _buscar_lista_items(resp.json())
+
+    out = []
+    for it in items:
+        titulo = it.get("title", "")
+        if keywords.lower() not in titulo.lower():
+            continue
+        pr = it.get("price", 0)
+        try:
+            precio = float(pr.get("amount", 0) if isinstance(pr, dict) else pr or 0)
+        except (TypeError, ValueError):
+            precio = 0.0
+        if max_price < SIN_LIMITE and precio > max_price:
+            continue
+        out.append({"nombre": titulo, "precio": precio, "plat": "Vinted",
+                    "enlace": it.get("url") or f"{base}/items/{it.get('id')}"})
+    return out
+
+
 def bloque(i, r):
-    return f"{i}. 💰 {r['precio']:.2f}€\n📝 {esc(r['nombre'])}\n🔗 {r['enlace']}\n\n"
+    ic = "🟣 Vinted" if r.get("plat") == "Vinted" else "🟢 Wallapop"
+    return f"{i}. {ic} · 💰 {r['precio']:.2f}€\n📝 {esc(r['nombre'])}\n🔗 {r['enlace']}\n\n"
 
 
 def comprobar_bots(bots, meta):
     activos = [b for b in bots if b["status"] == "running"]
-    errores, ok = [], 0
+    ok = 0
+    n_err = 0
+    stats = {"Wallapop": [0, 0, ""], "Vinted": [0, 0, ""]}  # ok, fallos, último error
     ts = ahora().strftime("%d/%m - %H:%M")
 
     for b in activos:
-        try:
-            resultados = buscar(b["keywords"], b["min_price"], b["max_price"])
-        except Exception as e:
-            print(f"[{b['keywords']}] Error: {e}")
-            errores.append(f"{b['keywords']}: {e}")
-            continue  # no tocamos el estado si falla
+        fuente = b.get("source", "ambos")
+        pedidos = [(n, f) for n, f, fu in (("Wallapop", buscar, ("wallapop", "ambos")),
+                                           ("Vinted", buscar_vinted, ("vinted", "ambos"))) if fuente in fu]
+        resultados, fallos = [], 0
+        for nombre, fn in pedidos:
+            try:
+                resultados += fn(b["keywords"], b["min_price"], b["max_price"])
+                stats[nombre][0] += 1
+            except Exception as e:
+                print(f"[{b['keywords']}] Error {nombre}: {e}")
+                stats[nombre][1] += 1
+                stats[nombre][2] = str(e)
+                fallos += 1
+                n_err += 1
+        if fallos == len(pedidos):
+            continue  # todo falló: no tocamos el estado
         ok += 1
 
-        actuales = {generar_key(r["nombre"], r["precio"]) for r in resultados}
+        actuales = {key_de(r) for r in resultados}
         vistos = set(b.get("seen", []))
-        nuevos = [r for r in resultados if generar_key(r["nombre"], r["precio"]) not in vistos]
-        b["seen"] = sorted(actuales)
+        nuevos = [r for r in resultados if key_de(r) not in vistos]
+        b["seen"] = sorted(vistos | actuales) if fallos else sorted(actuales)  # fallo parcial: no olvidar
 
         if not b.get("first_done"):
             b["first_done"] = True
@@ -412,41 +499,20 @@ def comprobar_bots(bots, meta):
             )
         print(f"[{b['keywords']}] resultados={len(resultados)} nuevos={len(nuevos)}")
 
-    # Aviso (una sola vez) si Wallapop bloquea las peticiones desde GitHub
-    if activos and ok == 0 and errores:
-        if not meta.get("bloqueado"):
-            meta["bloqueado"] = True
-            send("⚠️ <b>No consigo consultar Wallapop</b> (posible bloqueo/limitación).\n"
-                 f"<code>{esc(errores[0][:300])}</code>")
-    elif ok > 0 and meta.get("bloqueado"):
-        meta["bloqueado"] = False
-        send("✅ Wallapop vuelve a responder.")
-    return ok, len(errores)
+    # Avisos de bloqueo, una sola vez por plataforma
+    for nombre, (o, f, ultimo) in stats.items():
+        flag = "bloqueado" if nombre == "Wallapop" else "bloqueado_vinted"
+        if f and not o:
+            if not meta.get(flag):
+                meta[flag] = True
+                send(f"⚠️ <b>No consigo consultar {nombre}</b> (posible bloqueo/limitación).\n"
+                     f"<code>{esc(ultimo[:300])}</code>")
+        elif o and meta.get(flag):
+            meta[flag] = False
+            send(f"✅ {nombre} vuelve a responder.")
+    return ok, n_err
 
 
-# ======================
-# GIT (guardar estado a mitad de bucle para no perderlo si se corta la ejecución)
-# ======================
-def git_guardar():
-    if not os.environ.get("GITHUB_ACTIONS"):
-        return
-    try:
-        def run(*a):
-            subprocess.run(a, check=True, capture_output=True)
-        run("git", "config", "user.name", "wallapop-bot")
-        run("git", "config", "user.email", "wallapop-bot@users.noreply.github.com")
-        run("git", "add", "data/state.json")
-        if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode != 0:
-            run("git", "commit", "-m", "estado [skip ci]")
-            run("git", "pull", "--rebase", "-X", "theirs")
-            run("git", "push")
-    except Exception as e:
-        print("Aviso git:", e)
-
-
-# ======================
-# MAIN
-# ======================
 # ======================
 # CONFIG COMPARTIDA (repo, vía API de GitHub) + ESTADO LOCAL
 # ======================
@@ -464,6 +530,7 @@ def norm(cfg):
             "min_price": int(c.get("min_price") or 0),
             "max_price": SIN_LIMITE if mx in (None, "") else int(mx),
             "status": st if st in ("running", "paused") else "running",
+            "source": c.get("source") if c.get("source") in FUENTES else "ambos",
         })
     return out
 
