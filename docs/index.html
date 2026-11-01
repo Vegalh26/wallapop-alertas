@@ -44,7 +44,7 @@ a{color:var(--mut);font-size:13px}
 #m{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#1d2228;color:#fff;padding:11px 18px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;max-width:90vw;z-index:9;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 #m.show{opacity:1;transform:translate(-50%,0)}#m.e{background:var(--rd)}
 main.wide{max-width:1100px}
-.tabs{grid-template-columns:1fr 1fr;margin-bottom:14px}.tabs button{min-height:44px;font-size:14px}
+.tabs{grid-template-columns:repeat(3,1fr);margin-bottom:14px}.tabs button{min-height:44px;font-size:13px;padding:0 4px}
 .fl{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.fl::-webkit-scrollbar{display:none}
 .fl button{min-height:36px;padding:0 14px;border-radius:99px;font-size:13px;white-space:nowrap;background:var(--card);color:var(--mut);border:1px solid var(--bd);box-shadow:none}
 .fl button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
@@ -97,8 +97,12 @@ main.wide{max-width:1100px}
 .mod .row button{min-height:46px}.mod button.d{background:var(--rd)}
 @keyframes mf{from{opacity:0}}@keyframes mp{from{opacity:0;transform:scale(.94) translateY(8px)}}
 .lg{flex-wrap:wrap;overflow:visible;padding:10px 0 0}
-.fl:empty{display:none}.fl2{padding-top:0;margin-top:-4px}.fl2 button{background:var(--soft)}
-.fbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.fbar:empty{display:none}.fbar button{min-height:36px;padding:0 14px;font-size:13px}
+.fl:empty{display:none}
+.frow{display:flex;gap:8px;align-items:flex-start}.frow .fl{flex:1;min-width:0}
+.mw{position:relative;flex:none}.mw>button{min-height:36px;width:40px;padding:0;font-size:20px;line-height:1;border-radius:99px;box-shadow:none}
+.menu{position:absolute;right:0;top:42px;z-index:8;min-width:240px;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+.menu button{display:block;width:100%;text-align:left;min-height:42px;background:transparent;color:var(--tx);border:0;border-radius:10px;padding:0 12px;font-size:14px;font-weight:500}
+.menu button:hover{background:var(--soft)}.menu button.dg{color:var(--rd)}
 .oh{margin:24px 0 12px;padding:10px 14px;border-radius:12px;background:var(--soft);border:1px dashed var(--bd);font-size:14px}.oh small{display:block;color:var(--mut);font-size:12.5px;margin-top:2px}
 </style></head><body><main>
 
@@ -115,7 +119,7 @@ main.wide{max-width:1100px}
 <section id="app" class="hide">
 <aside class="side">
  <div class="top"><div class="logo">🤖</div><div class="tt"><h1>Wallapop Bots</h1><small>Wallapop + Vinted</small></div><button class="g ic" onclick="lock()">🔒 Salir</button></div>
- <div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')">🤖 Mis bots</button><button id="tb2" onclick="setTab('feed')">✨ Novedades</button></div>
+ <div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')">🤖 Mis bots</button><button id="tb2" onclick="setTab('feed')">✨ Novedades</button><button id="tb3" onclick="setTab('arch')">🗄 Archivados</button></div>
  <div class="stats"><div class="stat"><b id="s1">0</b><span>Activos</span></div><div class="stat"><b id="s2">0</b><span>Pausados</span></div><div class="stat"><b id="s3">0</b><span>Total</span></div></div>
 </aside>
 <div class="content">
@@ -132,7 +136,7 @@ main.wide{max-width:1100px}
    <p class="foot" style="text-align:left;margin:12px 0 0">Máx 1000 = sin límite. Los cambios se aplican en segundos.</p></div>
   <div id="list"></div>
  </div>
- <div id="tabFeed" class="hide"><div class="fl" id="fl"></div><div class="fl fl2" id="fl2"></div><div class="fbar" id="fbar"></div><div class="grid" id="grid"></div><div id="old"></div></div>
+ <div id="tabFeed" class="hide"><div class="frow"><div class="fl" id="fl"></div><div class="mw"><button class="g" id="mbtn" onclick="toggleMenu()" aria-label="Más opciones" title="Más opciones">⋯</button><div class="menu hide" id="menu"></div></div></div><div class="grid" id="grid"></div><div id="old"></div></div>
  <p class="foot">Se bloquea solo tras 5 min sin usar</p>
 </div>
 </section></main><div id="m"></div>
@@ -142,7 +146,7 @@ const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder()
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LANGS=[["it","🇮🇹 Italiano"],["fr","🇫🇷 Francés"],["en","🇬🇧 Inglés"],["de","🇩🇪 Alemán"],["pt","🇵🇹 Portugués"],["jp","🇯🇵 Japonés"],["es","🇪🇸 Español"]];
-let LM="off",LS=[],cfgOk=false,fArc=false,feedSha=null;
+let LM="off",LS=[],cfgOk=false,feedSha=null;
 let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt,feed=[],fKw="",fPl="",tab="bots",fiv;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
 async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
@@ -188,7 +192,7 @@ async function load(){cancelEdit();msg("Cargando…");
  const r=await fetch(api(),{headers:hd(),cache:"no-store"});
  if(r.status==404){cfg=[];sha=null}else if(!r.ok){msg("Error "+r.status+" al leer el repo",1);return}
  else{const j=await r.json();sha=j.sha;cfg=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))}
- cfgOk=true;render();msg("")}
+ cfgOk=true;render();msg("");if(tab!="bots")loadFeed(true)}
 async function push(t){const b={message:t,content:btoa(unescape(encodeURIComponent(JSON.stringify(cfg,null,2))))};if(sha)b.sha=sha;
  const r=await fetch(api(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
  if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await load();return}
@@ -202,10 +206,13 @@ function render(){const a=cfg.filter(b=>b.status!="paused").length;$("#s1").text
 const apiF=()=>`https://api.github.com/repos/${REPO}/contents/data/results.json`;
 const safe=u=>/^https:\/\//.test(u||"")?u:"";
 function ago(t){const m=Math.max(0,Math.round((Date.now()/1000-t)/60));return m<1?"ahora":m<60?"hace "+m+" min":m<1440?"hace "+Math.round(m/60)+" h":"hace "+Math.round(m/1440)+" d"}
-function setTab(x){tab=x;clearInterval(fiv);if(!$("#tabBots"))return;
- $("#tabBots").classList.toggle("hide",x!="bots");$("#tabFeed").classList.toggle("hide",x!="feed");
- $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");$("#app").classList.toggle("f",x=="feed");
- if(x=="feed"&&TOK){loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}}
+function setTab(x){const fd=x=="feed"||x=="arch";if(x!=tab)fKw="";tab=x;clearInterval(fiv);closeMenu();if(!$("#tabBots"))return;
+ $("#tabBots").classList.toggle("hide",x!="bots");$("#tabFeed").classList.toggle("hide",!fd);
+ $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");$("#tb3").classList.toggle("on",x=="arch");$("#app").classList.toggle("f",fd);
+ if(fd&&TOK){loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}}
+function closeMenu(){const m=$("#menu");if(m)m.classList.add("hide")}
+function toggleMenu(){$("#menu").classList.toggle("hide")}
+document.addEventListener("click",e=>{if(!e.target.closest(".mw"))closeMenu()});
 async function loadFeed(silent){
  try{const r=await fetch(apiF(),{headers:hd(),cache:"no-store"});
   if(r.status==404){feed=[];feedSha=null}else if(!r.ok){if(!silent)msg("Error "+r.status+" al leer novedades",1);return}
@@ -219,31 +226,28 @@ function fKey(b){const on=b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length;
 function fLabel(f){const [mn,mx,src,lg]=String(f).split("|"),[m,ls]=(lg||"off:").split(":");
  const lt=m!="off"&&ls?(m=="solo"?"Solo ":"Sin ")+ls.split(",").map(lname).join(", "):"";
  return mn+"€ – "+(+mx>=1000?"sin límite":mx+"€")+" · "+(SRCN[src]||src)+(lt?" · "+lt:"")}
-function renderFeed(){const byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b])),kk=x=>String(x.kw).toLowerCase(),
+function renderFeed(){const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b])),kk=x=>String(x.kw).toLowerCase(),
   isA=x=>cfgOk&&!byKw.has(kk(x)),arch=feed.filter(isA),live=feed.filter(x=>!isA(x));
- const lk=[...new Set(live.map(kk))],ak=[...new Set(arch.map(kk))],kws=[...lk,...ak],nm={};feed.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
- const cnt=k=>arch.filter(x=>kk(x)==k).length;
- if(!ak.length)fArc=false;
+ const pool=A?arch:live,kws=[...new Set(pool.map(kk))],nm={};pool.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
  if(fKw&&!kws.includes(fKw))fKw="";
- if(fArc){if(fKw&&!ak.includes(fKw))fKw=""}else if(ak.includes(fKw))fKw="";
- const inArch=fArc,base=fArc?arch:fKw?feed:live;
- const chip=(l,on,fn)=>`<button class="${on?"on":""}" onclick="${fn}">${l}</button>`;
- $("#fl").innerHTML=chip("Todo",!fKw&&!fPl&&!fArc,"fKw='';fPl='';fArc=false;renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
-  +lk.map((k,i)=>chip(esc(nm[k]),!fArc&&fKw==k,"fArc=false;fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("")+(ak.length?chip("🗄 Archivados ("+arch.length+")",fArc,"fArc=true;fKw='';renderFeed()"):"");window.kws_=kws;
- $("#fl2").innerHTML=fArc?chip("Todos ("+arch.length+")",!fKw,"fKw='';renderFeed()")+ak.map((k,j)=>chip(esc(nm[k])+" ("+cnt(k)+")",fKw==k,"fKw=kws_["+(lk.length+j)+"];renderFeed()")).join(""):"";
- const btn=(t,fn)=>`<button class="r ic" onclick="${fn}">${t}</button>`;
- $("#fbar").innerHTML=(fKw?btn("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(fArc?btn("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?btn("🧹 Vaciar todo","clearFeed('all')"):"");
+ const chip=(l,on,fn)=>`<button class="${on?"on":""}" onclick="${fn}">${l}</button>`;window.kws_=kws;
+ $("#fl").innerHTML=A?chip("Todos ("+pool.length+")",!fKw,"fKw='';renderFeed()")+kws.map((k,i)=>chip(esc(nm[k])+" ("+pool.filter(x=>kk(x)==k).length+")",fKw==k,"fKw=kws_["+i+"];renderFeed()")).join("")
+  :chip("Todo",!fKw&&!fPl,"fKw='';fPl='';renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
+   +kws.map((k,i)=>chip(esc(nm[k]),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("");
+ const it=(t,fn)=>`<button class="dg" onclick="closeMenu();${fn}">${t}</button>`;
+ const mi=(fKw?it("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(A&&arch.length?it("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?it("🧹 Vaciar todo","clearFeed('all')"):"");
+ $("#menu").innerHTML=mi;$("#mbtn").classList.toggle("hide",!mi);if(!mi)closeMenu();
  const pin=x=>{const w=x.p!="Vinted",im=safe(x.im),nw=Date.now()/1000-x.t<600,b=byKw.get(kk(x)),
    cs=String(x.lg||"").split(",").filter(Boolean),fl=cs.map(c=>c=="?"?"🌐?":lflag(c)).join(" "),
    lt=fl?" · "+fl:(b&&b.lang_mode&&b.lang_mode!="off"?" · 🌐 sin detectar":"");
   return`<a class="pin" href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
   <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}</div>
   <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}${lt}</small></div></a>`};
- const L=base.filter(x=>(!fKw||kk(x)==fKw)&&(!fPl||x.p==fPl)),cur=[],old=new Map();
+ const L=pool.filter(x=>(!fKw||kk(x)==fKw)&&(A||!fPl||x.p==fPl)),cur=[],old=new Map();
  for(const x of L){const b=byKw.get(kk(x));
-  if(inArch||!b||!x.f||x.f==fKey(b))cur.push(x);
+  if(A||!b||!x.f||x.f==fKey(b))cur.push(x);
   else{const k=kk(x)+"\u0001"+x.f;if(!old.has(k))old.set(k,{kw:x.kw,f:x.f,it:[]});old.get(k).it.push(x)}}
- $("#grid").innerHTML=cur.length?cur.map(pin).join(""):old.size?"":'<div class="card empty" style="column-span:all"><div class="big">✨</div><b>Aún no hay novedades</b><br>Cuando el bot encuentre anuncios aparecerán aquí.</div>';
+ $("#grid").innerHTML=cur.length?cur.map(pin).join(""):old.size?"":'<div class="card empty" style="column-span:all"><div class="big">'+(A?"🗄":"✨")+'</div><b>'+(A?"Nada archivado":"Aún no hay novedades")+'</b><br>'+(A?"Aquí van los anuncios de los bots que borres.":"Cuando el bot encuentre anuncios aparecerán aquí.")+'</div>';
  $("#old").innerHTML=[...old.values()].map(g=>`<div class="oh">🕘 <b>${esc(g.kw)}</b> · bot anterior<small>${esc(fLabel(g.f))}</small></div><div class="grid">${g.it.map(pin).join("")}</div>`).join("")}
 async function saveFeed(items){const b={message:"limpiar novedades [skip ci]",content:btoa(unescape(encodeURIComponent(JSON.stringify({items}))))};if(feedSha)b.sha=feedSha;
  const r=await fetch(apiF(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
