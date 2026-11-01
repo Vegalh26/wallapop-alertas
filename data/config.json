@@ -28,18 +28,6 @@
     ]
   },
   {
-    "id": "c3qxioel",
-    "status": "running",
-    "keywords": "yona",
-    "min_price": 0,
-    "max_price": 1000,
-    "source": "ambos",
-    "lang_mode": "solo",
-    "langs": [
-      "es"
-    ]
-  },
-  {
     "id": "omt3imuh",
     "status": "running",
     "keywords": "layton",
