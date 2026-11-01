@@ -96,6 +96,7 @@ main.wide{max-width:1100px}
 .mod h3{margin:0 0 6px;font-size:18px}.mod p{margin:0 0 18px;color:var(--mut);font-size:15px;word-break:break-word}
 .mod .row button{min-height:46px}.mod button.d{background:var(--rd)}
 @keyframes mf{from{opacity:0}}@keyframes mp{from{opacity:0;transform:scale(.94) translateY(8px)}}
+.lg{flex-wrap:wrap;overflow:visible;padding:10px 0 0}
 </style></head><body><main>
 
 <section id="lock" class="lock hide"><div class="logo">🤖</div><h1>Wallapop Bots</h1><p class="sub">Alertas de Wallapop y Vinted</p>
@@ -121,6 +122,9 @@ main.wide{max-width:1100px}
     <div><label>Mín €</label><input id="mn" type="number" inputmode="numeric" value="0"></div><div><label>Máx €</label><input id="mx" type="number" inputmode="numeric" value="1000"></div></div>
    <label>Dónde buscar</label><input type="hidden" id="src" value="ambos">
    <div class="seg" id="seg"><button class="on" data-v="ambos" onclick="setSrc('ambos')">Ambas</button><button data-v="wallapop" onclick="setSrc('wallapop')">Wallapop</button><button data-v="vinted" onclick="setSrc('vinted')">Vinted</button></div>
+   <label>Idioma</label>
+   <div class="seg" id="lseg"><button class="on" data-v="off" onclick="setLM('off')">Todos</button><button data-v="excluir" onclick="setLM('excluir')">Excluir</button><button data-v="solo" onclick="setLM('solo')">Solo</button></div>
+   <div class="fl lg hide" id="lbox"></div><p class="foot hide" id="lhint" style="text-align:left;margin:2px 0 0"></p>
    <div class="row" style="margin-top:16px"><button id="sv" onclick="add()">Crear bot</button><button id="cn" class="g hide" onclick="cancelEdit()">Cancelar</button><button class="g" style="flex:.45" onclick="load()" title="Recargar">↻</button></div>
    <p class="foot" style="text-align:left;margin:12px 0 0">Máx 1000 = sin límite. Los cambios se aplican en segundos.</p></div>
   <div id="list"></div>
@@ -134,6 +138,8 @@ main.wide{max-width:1100px}
 const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder();
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LANGS=[["it","🇮🇹 Italiano"],["fr","🇫🇷 Francés"],["en","🇬🇧 Inglés"],["de","🇩🇪 Alemán"],["pt","🇵🇹 Portugués"],["jp","🇯🇵 Japonés"],["es","🇪🇸 Español"]];
+let LM="off",LS=[];
 let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt,feed=[],fKw="",fPl="",tab="bots",fiv;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
 async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
@@ -187,7 +193,7 @@ async function push(t){const b={message:t,content:btoa(unescape(encodeURICompone
 function render(){const a=cfg.filter(b=>b.status!="paused").length;$("#s1").textContent=a;$("#s2").textContent=cfg.length-a;$("#s3").textContent=cfg.length;
  $("#list").innerHTML=cfg.length?cfg.map((b,i)=>{const s=b.source||"ambos",p=b.status=="paused";
  return`<div class="card"><div class="bhead"><b>${esc(b.keywords)}</b><span class="pill ${p?"off":"on"}">${p?"⏸ Pausado":"● Activo"}</span></div>
- <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip cw">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip cv">🟣 Vinted</span>':""}</div>
+ <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip cw">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip cv">🟣 Vinted</span>':""}${b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length?`<span class="chip">🌐 ${b.lang_mode=="solo"?"Solo":"Sin"} ${b.langs.map(c=>(LANGS.find(l=>l[0]==c)||["",c])[1].replace(/^\S+\s/,"")).join(", ")}</span>`:""}</div>
  <div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${p?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`}).join("")
  :'<div class="card empty"><div class="big">🔍</div><b>Aún no tienes bots</b><br>Crea el primero arriba y te avisaré por Telegram.</div>'}
 const apiF=()=>`https://api.github.com/repos/${REPO}/contents/data/results.json`;
@@ -212,15 +218,21 @@ function renderFeed(){const kws=[...new Set(feed.map(x=>x.kw))];
   return`<a class="pin" href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
   <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}</div>
   <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}</small></div></a>`}).join(""):'<div class="card empty" style="column-span:all"><div class="big">✨</div><b>Aún no hay novedades</b><br>Cuando el bot encuentre anuncios aparecerán aquí.</div>'}
+function drawL(){const on=LM!="off";$("#lbox").classList.toggle("hide",!on);$("#lhint").classList.toggle("hide",!on);
+ $("#lbox").innerHTML=LANGS.map(([c,n])=>`<button type="button" class="${LS.includes(c)?"on":""}" onclick="togL('${c}')">${n}</button>`).join("");
+ $("#lhint").textContent=LM=="excluir"?"Se ocultan los anuncios que mencionen estos idiomas en el título o la descripción.":"Se ocultan los que mencionen otros idiomas. Los que no mencionan ninguno se siguen mostrando."}
+function setLM(v){LM=v;document.querySelectorAll("#lseg button").forEach(x=>x.classList.toggle("on",x.dataset.v==v));drawL()}
+function togL(c){LS=LS.includes(c)?LS.filter(x=>x!=c):[...LS,c];drawL()}
 function setSrc(v){$("#src").value=v;document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x.dataset.v==v))}
 function add(){const k=$("#kw").value.trim();if(!k){$("#kw").focus();return}
- const d={keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,source:$("#src").value};
+ if(LM!="off"&&!LS.length){msg("Elige al menos un idioma",1);return}
+ const d={keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,source:$("#src").value,lang_mode:LM,langs:LM=="off"?[]:[...LS]};
  const nid=()=>Math.random().toString(36).slice(2,10);
  if(ed!==null){const b=cfg[ed];if(b.keywords.toLowerCase()!==k.toLowerCase())b.id=nid();Object.assign(b,d);cancelEdit();push("editar bot");return}
  cfg.push({id:nid(),status:"running",...d});cancelEdit();push("nuevo bot")}
-function edit(i){const b=cfg[i];ed=i;$("#kw").value=b.keywords;$("#mn").value=b.min_price;$("#mx").value=b.max_price;setSrc(b.source||"ambos");
+function edit(i){const b=cfg[i];ed=i;$("#kw").value=b.keywords;$("#mn").value=b.min_price;$("#mx").value=b.max_price;setSrc(b.source||"ambos");setLM(b.lang_mode||"off");LS=[...(b.langs||[])];drawL();
  $("#ft").textContent="Editando: "+b.keywords;$("#sv").textContent="Guardar cambios";$("#cn").classList.remove("hide");scrollTo({top:0,behavior:"smooth"});$("#kw").focus()}
-function cancelEdit(){ed=null;$("#kw").value="";$("#mn").value=0;$("#mx").value=1000;setSrc("ambos");$("#ft").textContent="Nuevo bot";$("#sv").textContent="Crear bot";$("#cn").classList.add("hide")}
+function cancelEdit(){ed=null;$("#kw").value="";$("#mn").value=0;$("#mx").value=1000;setSrc("ambos");LS=[];setLM("off");$("#ft").textContent="Nuevo bot";$("#sv").textContent="Crear bot";$("#cn").classList.add("hide")}
 function tog(i){if(ed!==null)cancelEdit();cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
 async function del(i){if(ed!==null)cancelEdit();const b=cfg[i];if(!b)return;if(await ask("¿Borrar este bot?","Se eliminará «"+b.keywords+"» y dejarás de recibir sus avisos.","Borrar")){const j=cfg.indexOf(b);if(j<0)return;cfg.splice(j,1);push("borrar bot")}}
 document.addEventListener("keydown",e=>{if(e.key=="Enter"){if(!$("#lock").classList.contains("hide"))enter();else if(document.activeElement&&["kw","mn","mx"].includes(document.activeElement.id))add()}});
