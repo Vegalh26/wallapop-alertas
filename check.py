@@ -442,8 +442,10 @@ def buscar_vinted(keywords, min_price, max_price):
             precio = 0.0
         if max_price < SIN_LIMITE and precio > max_price:
             continue
-        out.append({"nombre": titulo, "precio": precio, "plat": "Vinted",
-                    "enlace": it.get("url") or f"{base}/items/{it.get('id')}"})
+        enlace = it.get("url") or f"/items/{it.get('id')}"
+        if enlace.startswith("/"):  # Vinted a veces devuelve solo la ruta
+            enlace = base + enlace
+        out.append({"nombre": titulo, "precio": precio, "plat": "Vinted", "enlace": enlace})
     return out
 
 
@@ -478,10 +480,12 @@ def comprobar_bots(bots, meta):
             continue  # todo falló: no tocamos el estado
         ok += 1
 
-        actuales = {key_de(r) for r in resultados}
-        vistos = set(b.get("seen", []))
+        previos = b.get("seen", [])
+        vistos = set(previos)
         nuevos = [r for r in resultados if key_de(r) not in vistos]
-        b["seen"] = sorted(vistos | actuales) if fallos else sorted(actuales)  # fallo parcial: no olvidar
+        # Nunca olvidamos lo ya avisado (los resultados "bailan" entre peticiones): sin duplicados
+        añadir = list(dict.fromkeys(key_de(r) for r in nuevos))
+        b["seen"] = (previos + añadir)[-2000:]
 
         if not b.get("first_done"):
             b["first_done"] = True
