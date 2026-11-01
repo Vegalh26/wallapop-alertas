@@ -22,5 +22,13 @@
     "min_price": 0,
     "max_price": 25,
     "source": "ambos"
+  },
+  {
+    "id": "601tplxi",
+    "status": "running",
+    "keywords": "Shen Qingqiu Nendoroid",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos"
   }
 ]
