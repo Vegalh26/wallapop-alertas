@@ -137,7 +137,7 @@ main.wide{max-width:1100px}
   <div id="list"></div>
  </div>
  <div id="tabFeed" class="hide"><div class="frow"><div class="fl" id="fl"></div><div class="mw"><button class="g" id="mbtn" onclick="toggleMenu()" aria-label="Más opciones" title="Más opciones">⋯</button><div class="menu hide" id="menu"></div></div></div><div class="grid" id="grid"></div><div id="old"></div></div>
- <p class="foot">Se bloquea solo tras 5 min sin usar</p>
+ <p class="foot">Se bloquea solo tras 2 h sin usar</p>
 </div>
 </section></main><div id="m"></div>
 <div id="mod" class="mod hide" role="dialog" aria-modal="true" aria-labelledby="mt"><div class="box"><h3 id="mt"></h3><p id="mb"></p><div class="row"><button class="g" id="mno">Cancelar</button><button class="d" id="mok">Borrar</button></div></div></div>
@@ -170,7 +170,10 @@ function ask(title,msg,ok){return new Promise(res=>{
  yes.onclick=()=>done(true);no.onclick=()=>done(false);o.onclick=e=>{if(e.target===o)done(false)};
 })}
 async function forget(){if(await ask("¿Olvidar este dispositivo?","Se borrará el acceso guardado aquí (repo, token y PIN). Tendrás que volver a configurarlo.","Olvidar")){localStorage.removeItem("wb");localStorage.removeItem("wbf");showLock()}}
-function bump(){clearTimeout(idle);idle=setTimeout(lock,300000)}
+const IDLE_MS=7200000;let lastAct=Date.now();  /* 2 h sin usar */
+function bump(){lastAct=Date.now();clearTimeout(idle);idle=setTimeout(lock,IDLE_MS)}
+/* los temporizadores se pausan si el móvil/pestaña duerme: al volver se comprueba con la hora real */
+document.addEventListener("visibilitychange",()=>{if(TOK&&!document.hidden&&Date.now()-lastAct>=IDLE_MS)lock()});
 ["click","keydown","touchstart"].forEach(e=>addEventListener(e,()=>{if(TOK)bump()}));
 async function enter(){const lm=$("#lm");lm.textContent="";$("#go").disabled=true;
  try{const s=store();
