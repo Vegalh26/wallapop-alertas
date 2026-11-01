@@ -2,29 +2,13 @@
   "offset": 694625803,
   "bloqueado": false,
   "bots": {
-    "bs6v3efa": {
+    "qa7hakvm": {
       "seen": [
         "7c8c86ccbc2f72d2105c926b70d08da6"
       ],
       "first_done": true
     },
-    "oqsk5e4d": {
-      "seen": [
-        "a56b24703a444e0218501b6614783cc4",
-        "5a5bf9d28b84bba1e73561b8b34453b1",
-        "04f707a98b3f75b7f638cdd5e5672de7",
-        "98dc61e0c2570a64fb9d316f71b2ddfa",
-        "6fb1403ff0a8ee71dc3ca4a58addceb2",
-        "99595a52bd2a2b9bbb77d7ce38ae1694",
-        "4ebec7e3bb9271f9cd034b22ac9d3950"
-      ],
-      "first_done": true
-    },
-    "1le7wf4e": {
-      "seen": [],
-      "first_done": true
-    },
-    "ikt0a9hs": {
+    "z6y91wkg": {
       "seen": [
         "cd8da0aa8068e3c5f0c4d41ca1254ee8",
         "a715620f733bbfc5562743fe854efeac",
@@ -32,15 +16,24 @@
         "dc13872a99fb5f2c1bb90fb1c2994dd4",
         "77ab186e63ab8ff63b60d228754fee9f",
         "d8c47ada1cf108809aa8cc6856d74f9e",
-        "ce12b6ee7e2bc4dff9fcbad916f4d2f0",
         "fa3d8486880391d4098f513bb4a901fb",
-        "cf5abb715cee539342b7bea9608c0be4",
-        "64105fe57c21330c72227824dd731e58",
-        "f1c7fb036652f19c9846d91dd2bc0558",
-        "0745eb62aa9157ca120ce01fca85aa0b",
-        "728dfcacd0b1817c3d91c967b301ed03",
-        "ace1cfcbe66b21a5ef0a1333dd70dcc7"
+        "0745eb62aa9157ca120ce01fca85aa0b"
       ],
+      "first_done": true
+    },
+    "81lkzao7": {
+      "seen": [
+        "a56b24703a444e0218501b6614783cc4",
+        "5a5bf9d28b84bba1e73561b8b34453b1",
+        "04f707a98b3f75b7f638cdd5e5672de7",
+        "99595a52bd2a2b9bbb77d7ce38ae1694",
+        "98dc61e0c2570a64fb9d316f71b2ddfa",
+        "6fb1403ff0a8ee71dc3ca4a58addceb2"
+      ],
+      "first_done": true
+    },
+    "keshrwu4": {
+      "seen": [],
       "first_done": true
     }
   },
