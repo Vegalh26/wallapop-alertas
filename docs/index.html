@@ -1,64 +1,104 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1214"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Wallapop">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><link rel="icon" href="icon-192.png">
 <title>Wallapop Bots</title>
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--tx:#1a1d21;--mut:#6b7280;--ac:#0fb5a2;--bd:#e3e6ea;--rd:#e5484d}
 @media(prefers-color-scheme:dark){:root{--bg:#0f1214;--card:#181c20;--tx:#eceef0;--mut:#9aa3ad;--bd:#2a3036}}
-*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--tx)}
-main{max-width:640px;margin:0 auto;padding:20px 14px}h1{font-size:22px;margin:0 0 14px}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
-input{width:100%;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
-.row{display:flex;gap:8px;margin-top:8px}label{font-size:12px;color:var(--mut)}
-button{border:0;border-radius:8px;padding:9px 13px;background:var(--ac);color:#fff;font:inherit;cursor:pointer}
-button.g{background:var(--bd);color:var(--tx)}button.r{background:var(--rd)}
-.bot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
-.bot b{display:block}.bot small{color:var(--mut)}.act{display:flex;gap:6px}
-#m{min-height:20px;font-size:13px;color:var(--mut)}#m.e{color:var(--rd)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font:16px system-ui,sans-serif;background:var(--bg);color:var(--tx);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+main{max-width:620px;margin:0 auto;padding:18px 14px 40px}h1{font-size:22px;margin:0}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+input{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit;margin-top:4px}
+label{font-size:12px;color:var(--mut);display:block;margin-top:10px}
+button{min-height:46px;border:0;border-radius:10px;padding:0 16px;background:var(--ac);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button.g{background:var(--bd);color:var(--tx)}button.r{background:var(--rd)}button.w{width:100%;margin-top:14px}
+.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
+.bot{display:flex;flex-direction:column;gap:10px}.bot small{color:var(--mut);display:block;margin-top:2px}
+.act{display:flex;gap:8px}.act button{flex:1}
+#m{min-height:20px;font-size:13px;color:var(--mut);margin:4px 2px}#m.e,.err{color:var(--rd)}
+.hide{display:none}.lock{margin-top:12vh;text-align:center}.lock h1{font-size:28px;margin-bottom:6px}
+.sub{color:var(--mut);font-size:14px;margin:0 0 14px}a{color:var(--mut);font-size:13px}
 </style></head><body><main>
-<h1>🤖 Wallapop Bots</h1>
-<details class="card" id="cfg"><summary>Conexión con GitHub</summary>
-<div class="row"><div style="flex:1"><label>Repo (usuario/nombre)</label><input id="repo"></div></div>
-<div class="row"><div style="flex:1"><label>Token (solo se guarda en este navegador)</label><input id="tok" type="password"></div></div>
-<div class="row"><button onclick="load()">Guardar y conectar</button></div></details>
+
+<section id="lock" class="lock hide"><h1>🤖 Wallapop Bots</h1>
+<div class="card" style="text-align:left">
+ <div id="first" class="hide"><p class="sub">Primera vez en este dispositivo: conecta tu repo y elige un PIN para desbloquearlo después.</p>
+  <label>Repo (usuario/nombre)</label><input id="repo" autocapitalize="off" autocorrect="off">
+  <label>Token de GitHub</label><input id="tok" type="password" autocomplete="off">
+  <label>Elige un PIN (mín. 4)</label><input id="pin1" type="password" inputmode="numeric" autocomplete="new-password"></div>
+ <div id="again" class="hide"><p class="sub">Introduce tu PIN para entrar.</p>
+  <label>PIN</label><input id="pin2" type="password" inputmode="numeric" autocomplete="current-password"></div>
+ <button class="w" id="go" onclick="enter()">Entrar</button><div id="lm" class="err" style="margin-top:8px;font-size:14px"></div>
+</div>
+<a href="#" id="forget" class="hide" onclick="forget();return false">Olvidar este dispositivo</a></section>
+
+<section id="app" class="hide">
+<div class="top"><h1>🤖 Wallapop Bots</h1><button class="g" onclick="lock()">🔒 Salir</button></div>
 <div class="card"><b>Nuevo bot</b>
-<div class="row"><div style="flex:2"><label>Búsqueda</label><input id="kw" placeholder="mario party"></div>
-<div><label>Mín €</label><input id="mn" type="number" value="0"></div>
-<div><label>Máx €</label><input id="mx" type="number" value="1000"></div></div>
-<div class="row"><button onclick="add()">Crear</button><button class="g" onclick="load()">↻ Recargar</button></div></div>
+ <label>Búsqueda</label><input id="kw" placeholder="mario party" enterkeyhint="done">
+ <div class="row"><div><label>Mín €</label><input id="mn" type="number" inputmode="numeric" value="0"></div>
+ <div><label>Máx € (1000 = sin límite)</label><input id="mx" type="number" inputmode="numeric" value="1000"></div></div>
+ <div class="row" style="margin-top:14px"><button onclick="add()">Crear</button><button class="g" onclick="load()">↻ Recargar</button></div></div>
 <div id="m"></div><div id="list"></div>
-<p style="color:var(--mut);font-size:12px">Los cambios se aplican en ~30 s. Máx 1000 = sin límite.</p>
-</main><script>
-const $=s=>document.querySelector(s);let cfg=[],sha=null;
-const g=k=>localStorage.getItem(k)||"";
-const guess=location.hostname.endsWith(".github.io")?location.hostname.split(".")[0]+"/"+(location.pathname.split("/")[1]||""):"";
-$("#repo").value=g("repo")||guess;$("#tok").value=g("tok");
-const api=()=>`https://api.github.com/repos/${$("#repo").value.trim()}/contents/data/config.json`;
-const hd=()=>({Authorization:"Bearer "+$("#tok").value.trim(),Accept:"application/vnd.github+json"});
-const msg=(t,e)=>{$("#m").textContent=t;$("#m").className=e?"e":""};
+<p style="color:var(--mut);font-size:12px">Los cambios se aplican en unos segundos. Se bloquea solo tras 5 min sin usar.</p>
+</section></main>
+<script>
+const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder();
+const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-async function load(){
- try{localStorage.setItem("repo",$("#repo").value.trim());localStorage.setItem("tok",$("#tok").value.trim())}catch(e){}
- msg("Cargando…");
+let TOK="",REPO="",cfg=[],sha=null,idle;
+const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
+async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
+ return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:200000,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])}
+async function seal(t,p){const s=crypto.getRandomValues(new Uint8Array(16)),i=crypto.getRandomValues(new Uint8Array(12));
+ return{s:b64(s),i:b64(i),c:b64(await crypto.subtle.encrypt({name:"AES-GCM",iv:i},await key(p,s),enc.encode(t)))}}
+async function unseal(o,p){return dec.decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:ub(o.i)},await key(p,ub(o.s)),ub(o.c)))}
+const hd=()=>({Authorization:"Bearer "+TOK,Accept:"application/vnd.github+json"});
+const api=()=>`https://api.github.com/repos/${REPO}/contents/data/config.json`;
+const msg=(t,e)=>{$("#m").textContent=t;$("#m").className=e?"e":""};
+function showLock(){clearTimeout(idle);TOK="";cfg=[];$("#app").classList.add("hide");$("#lock").classList.remove("hide");
+ const s=store();$("#first").classList.toggle("hide",!!s);$("#again").classList.toggle("hide",!s);$("#forget").classList.toggle("hide",!s);$("#lm").textContent="";
+ $("#pin1").value=$("#pin2").value="";if(!s){const g=location.hostname.endsWith(".github.io")?location.hostname.split(".")[0]+"/"+(location.pathname.split("/")[1]||""):"";$("#repo").value=g;$("#tok").value=""}}
+function lock(){showLock()}
+function forget(){if(confirm("¿Borrar el acceso guardado en este dispositivo?")){localStorage.removeItem("wb");localStorage.removeItem("wbf");showLock()}}
+function bump(){clearTimeout(idle);idle=setTimeout(lock,300000)}
+["click","keydown","touchstart"].forEach(e=>addEventListener(e,()=>{if(TOK)bump()}));
+async function enter(){const lm=$("#lm");lm.textContent="";$("#go").disabled=true;
+ try{const s=store();
+  if(!s){const repo=$("#repo").value.trim(),tok=$("#tok").value.trim(),pin=$("#pin1").value;
+   if(!repo||!tok||pin.length<4)throw"Rellena repo, token y un PIN de 4+ caracteres";
+   const h={Authorization:"Bearer "+tok,Accept:"application/vnd.github+json"};
+   const u=await fetch("https://api.github.com/user",{headers:h});if(!u.ok)throw"Token no válido";
+   const r=await fetch("https://api.github.com/repos/"+repo,{headers:h});if(!r.ok)throw"No puedo acceder a ese repo";
+   const [me,rj]=[(await u.json()).login,await r.json()];
+   if(rj.owner.login.toLowerCase()!==me.toLowerCase()||!(rj.permissions&&rj.permissions.push))throw"Este token no es del dueño del repo o no puede escribir";
+   localStorage.setItem("wb",JSON.stringify({repo,...await seal(tok,pin)}));localStorage.removeItem("wbf");TOK=tok;REPO=repo;
+  }else{let f=+localStorage.getItem("wbf")||0;
+   try{TOK=await unseal(s,$("#pin2").value);REPO=s.repo;localStorage.removeItem("wbf")}
+   catch(e){f++;localStorage.setItem("wbf",f);if(f>=5){localStorage.removeItem("wb");localStorage.removeItem("wbf");showLock();$("#lm").textContent="Demasiados intentos: acceso borrado de este dispositivo.";return}
+    throw"PIN incorrecto ("+(5-f)+" intentos restantes)"}}
+  $("#lock").classList.add("hide");$("#app").classList.remove("hide");bump();load();
+ }catch(e){lm.textContent=typeof e=="string"?e:"Error de conexión"}finally{$("#go").disabled=false}}
+async function load(){msg("Cargando…");
  const r=await fetch(api(),{headers:hd(),cache:"no-store"});
- if(r.status==404){cfg=[];sha=null}
- else if(!r.ok){msg("Error "+r.status+": revisa repo y token",1);$("#cfg").open=true;return}
+ if(r.status==404){cfg=[];sha=null}else if(!r.ok){msg("Error "+r.status+" al leer el repo",1);return}
  else{const j=await r.json();sha=j.sha;cfg=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))}
- render();msg("");
-}
-async function push(t){
- const b={message:t,content:btoa(unescape(encodeURIComponent(JSON.stringify(cfg,null,2))))};if(sha)b.sha=sha;
+ render();msg("")}
+async function push(t){const b={message:t,content:btoa(unescape(encodeURIComponent(JSON.stringify(cfg,null,2))))};if(sha)b.sha=sha;
  const r=await fetch(api(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
  if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await load();return}
- sha=(await r.json()).content.sha;render();msg("Guardado ✓ (se aplica en ~30 s)");
-}
-function render(){
- $("#list").innerHTML=cfg.length?cfg.map((b,i)=>`<div class="card bot"><div><b>${esc(b.keywords)}</b>
+ sha=(await r.json()).content.sha;render();msg("Guardado ✓")}
+function render(){$("#list").innerHTML=cfg.length?cfg.map((b,i)=>`<div class="card bot"><div><b>${esc(b.keywords)}</b>
  <small>${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"} · ${b.status=="paused"?"⏸ pausado":"▶️ activo"}</small></div>
- <div class="act"><button class="g" onclick="tog(${i})">${b.status=="paused"?"Reanudar":"Pausar"}</button><button class="r" onclick="del(${i})">Borrar</button></div></div>`).join(""):'<div class="card">No hay bots todavía.</div>';
-}
+ <div class="act"><button class="g" onclick="tog(${i})">${b.status=="paused"?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`).join(""):'<div class="card">No hay bots todavía.</div>'}
 function add(){const k=$("#kw").value.trim();if(!k)return;
- cfg.push({id:Math.random().toString(36).slice(2,10),keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,status:"running"});
- $("#kw").value="";push("nuevo bot")}
+ cfg.push({id:Math.random().toString(36).slice(2,10),keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,status:"running"});$("#kw").value="";push("nuevo bot")}
 function tog(i){cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
 function del(i){if(confirm("¿Borrar "+cfg[i].keywords+"?")){cfg.splice(i,1);push("borrar bot")}}
-if(g("tok")&&$("#repo").value)load();else $("#cfg").open=true;
+document.addEventListener("keydown",e=>{if(e.key=="Enter"&&!$("#lock").classList.contains("hide"))enter()});
+showLock();
 </script></body></html>
