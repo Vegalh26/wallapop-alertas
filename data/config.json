@@ -22,5 +22,13 @@
     "min_price": 0,
     "max_price": 25,
     "source": "ambos"
+  },
+  {
+    "id": "883p04rl",
+    "status": "running",
+    "keywords": "alien stage",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos"
   }
 ]
