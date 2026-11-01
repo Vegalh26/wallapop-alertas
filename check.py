@@ -318,6 +318,28 @@ def extraer_items(data):
     )
 
 
+def _primera_url(x):
+    """Primera URL de imagen que encuentre en cualquier estructura (Wallapop/Vinted cambian los nombres)."""
+    if isinstance(x, str):
+        return x if x.startswith("http") else ""
+    if isinstance(x, dict):
+        for k in ("big", "xlarge", "large", "medium", "original", "full_size_url", "url", "urls", "small"):
+            if k in x:
+                r = _primera_url(x[k])
+                if r:
+                    return r
+        for v in x.values():
+            r = _primera_url(v)
+            if r:
+                return r
+    if isinstance(x, list):
+        for v in x:
+            r = _primera_url(v)
+            if r:
+                return r
+    return ""
+
+
 def generar_key(nombre, precio, plat="Wallapop"):
     pre = "" if plat == "Wallapop" else plat + "|"  # las claves de Wallapop no cambian
     return hashlib.md5(f"{pre}{nombre}-{precio}".encode()).hexdigest()
@@ -382,6 +404,7 @@ def buscar(keywords, min_price, max_price):
             "precio": precio,
             "enlace": f"https://es.wallapop.com/item/{slug}",
             "plat": "Wallapop",
+            "img": _primera_url(content.get("images")),
         })
     return resultados
 
@@ -445,7 +468,8 @@ def buscar_vinted(keywords, min_price, max_price):
         enlace = it.get("url") or f"/items/{it.get('id')}"
         if enlace.startswith("/"):  # Vinted a veces devuelve solo la ruta
             enlace = base + enlace
-        out.append({"nombre": titulo, "precio": precio, "plat": "Vinted", "enlace": enlace})
+        out.append({"nombre": titulo, "precio": precio, "plat": "Vinted", "enlace": enlace,
+                    "img": _primera_url(it.get("photo"))})
     return out
 
 
@@ -490,6 +514,7 @@ def comprobar_bots(bots, meta):
         if not b.get("first_done"):
             b["first_done"] = True
             if resultados:
+                registrar(b["keywords"], resultados)
                 send_blocks(
                     f"🔵 <b>Primera comprobación</b> — <i>{esc(b['keywords'])}</i>\n\n",
                     [bloque(i, r) for i, r in enumerate(resultados, 1)],
@@ -497,6 +522,7 @@ def comprobar_bots(bots, meta):
             else:
                 send(f"🔴 Sin resultados para <b>{esc(b['keywords'])}</b>")
         elif nuevos:
+            registrar(b["keywords"], nuevos)
             send_blocks(
                 f"🆕 <b>NUEVOS</b> — <i>{esc(b['keywords'])}</i>\n📅 {ts}\n\n",
                 [bloque(i, r) for i, r in enumerate(nuevos, 1)],
@@ -539,39 +565,76 @@ def norm(cfg):
     return out
 
 
-def _gh(method, **kw):
+def _gh(method, path, **kw):
     return requests.request(
-        method, f"https://api.github.com/repos/{REPO}/contents/data/config.json",
+        method, f"https://api.github.com/repos/{REPO}/contents/{path}",
         headers={"Authorization": f"Bearer {GH_TOKEN}", "Accept": "application/vnd.github+json"},
         timeout=20, **kw)
 
 
-def leer_config():
+def leer_json_repo(path, default):
     if not (REPO and GH_TOKEN):
-        return norm(load_json(CFG_FILE, [])), None
-    r = _gh("GET")
+        return load_json(DATA_DIR / Path(path).name, default), None
+    r = _gh("GET", path)
     if r.status_code == 404:
-        return [], None
+        return default, None
     r.raise_for_status()
     j = r.json()
-    return norm(json.loads(base64.b64decode(j["content"]).decode("utf-8") or "[]")), j["sha"]
+    return json.loads(base64.b64decode(j["content"]).decode("utf-8") or "null"), j["sha"]
 
 
-def escribir_config(cfg, sha):
+def escribir_json_repo(path, obj, sha):
     if not (REPO and GH_TOKEN):
-        save_json(CFG_FILE, cfg)
-        return
-    body = {"message": "config [skip ci]",
-            "content": base64.b64encode(json.dumps(cfg, ensure_ascii=False, indent=2).encode()).decode()}
+        save_json(DATA_DIR / Path(path).name, obj)
+        return None
+    txt = json.dumps(obj, ensure_ascii=False, indent=2 if isinstance(obj, list) else None, separators=None if isinstance(obj, list) else (",", ":"))
+    body = {"message": f"{Path(path).stem} [skip ci]", "content": base64.b64encode(txt.encode()).decode()}
     for _ in range(2):
         if sha:
             body["sha"] = sha
-        r = _gh("PUT", json=body)
-        if r.status_code in (409, 422):  # alguien (el panel) la cambió a la vez
-            sha = leer_config()[1]
+        r = _gh("PUT", path, json=body)
+        if r.status_code in (409, 422):  # conflicto: releer el sha y reintentar
+            sha = leer_json_repo(path, None)[1]
             continue
         r.raise_for_status()
-        return
+        return r.json()["content"]["sha"]
+    return sha
+
+
+def leer_config():
+    cfg, sha = leer_json_repo("data/config.json", [])
+    return norm(cfg or []), sha
+
+
+def escribir_config(cfg, sha):
+    escribir_json_repo("data/config.json", cfg, sha)
+
+
+# ---------- Muro de novedades (lo lee el panel web) ----------
+RES = {"items": [], "sha": None, "dirty": False}
+RES_MAX = 150
+
+
+def registrar(kw, items):
+    t = int(time.time())
+    ya = {x["id"] for x in RES["items"]}
+    lote = []
+    for r in items:
+        i = key_de(r)
+        if i in ya:
+            continue
+        ya.add(i)
+        lote.append({"id": i, "t": t, "kw": kw, "p": r.get("plat", "Wallapop"), "n": r["nombre"],
+                     "pr": r["precio"], "u": r["enlace"], "im": r.get("img", "")})
+    if lote:
+        RES["items"] = (lote + RES["items"])[:RES_MAX]
+        RES["dirty"] = True
+
+
+def guardar_recientes():
+    if RES["dirty"]:
+        RES["sha"] = escribir_json_repo("data/results.json", {"items": RES["items"]}, RES["sha"])
+        RES["dirty"] = False
 
 
 def cfg_of(bots):
@@ -598,6 +661,10 @@ def iteracion(bots, meta):
     if cfg_of(bots) != remota:  # cambios hechos por Telegram -> al repo
         escribir_config(cfg_of(bots), sha)
     guardar(bots, meta)
+    try:
+        guardar_recientes()
+    except Exception as e:
+        print("Aviso al guardar novedades:", e)
     return ok, err
 
 
@@ -606,6 +673,11 @@ def main():
         raise SystemExit("Faltan TELEGRAM_TOKEN / TELEGRAM_CHAT_ID")
     meta = load_json(STATE_FILE, {})
     bots = []
+    try:
+        d, RES["sha"] = leer_json_repo("data/results.json", {"items": []})
+        RES["items"] = (d or {}).get("items", [])
+    except Exception as e:
+        print("Aviso al leer novedades:", e)
     if LOOP_SECONDS <= 0:
         iteracion(bots, meta)
         return
