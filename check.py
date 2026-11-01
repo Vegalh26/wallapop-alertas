@@ -1,11 +1,9 @@
 """
 Wallapop bots - versión "serverless" para GitHub Actions.
-
 Cada ejecución (cada ~5 min, lanzada por el cron de GitHub):
   1. Lee los mensajes pendientes de Telegram y aplica los comandos (crear, pausar, borrar...).
   2. Comprueba en Wallapop cada bot activo y avisa por Telegram de lo nuevo.
   3. Guarda el estado en data/*.json (el workflow lo sube al repo).
-
 Variables de entorno necesarias (GitHub Secrets):
   TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
 """
@@ -47,10 +45,12 @@ SEARCH_URLS = [
 LAT = os.environ.get("WALLAPOP_LAT", "40.4168")
 LON = os.environ.get("WALLAPOP_LON", "-3.7038")
 SIN_LIMITE = 1000
-# LOOP_SECONDS > 0  -> la ejecución se queda en bucle ese tiempo, comprobando cada CHECK_INTERVAL s.
-# LOOP_SECONDS = 0  -> una sola comprobación y termina.
+
+# LOOP_SECONDS > 0 -> la ejecución se queda en bucle ese tiempo, comprobando cada CHECK_INTERVAL s.
+# LOOP_SECONDS = 0 -> una sola comprobación y termina.
 LOOP_SECONDS = int(os.environ.get("LOOP_SECONDS", "0") or 0)
 CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", "10") or 10)
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
@@ -450,9 +450,9 @@ def buscar_vinted(keywords, min_price, max_price):
             break
     if resp.status_code >= 400:
         print("Respuesta de Vinted:", resp.status_code, resp.text[:200])
-    resp.raise_for_status()
-    items = _buscar_lista_items(resp.json())
+        resp.raise_for_status()
 
+    items = _buscar_lista_items(resp.json())
     out = []
     for it in items:
         titulo = it.get("title", "")
@@ -484,7 +484,6 @@ def comprobar_bots(bots, meta):
     n_err = 0
     stats = {"Wallapop": [0, 0, ""], "Vinted": [0, 0, ""]}  # ok, fallos, último error
     ts = ahora().strftime("%d/%m - %H:%M")
-
     for b in activos:
         fuente = b.get("source", "ambos")
         pedidos = [(n, f) for n, f, fu in (("Wallapop", buscar, ("wallapop", "ambos")),
@@ -587,7 +586,8 @@ def escribir_json_repo(path, obj, sha):
     if not (REPO and GH_TOKEN):
         save_json(DATA_DIR / Path(path).name, obj)
         return None
-    txt = json.dumps(obj, ensure_ascii=False, indent=2 if isinstance(obj, list) else None, separators=None if isinstance(obj, list) else (",", ":"))
+    txt = json.dumps(obj, ensure_ascii=False, indent=2 if isinstance(obj, list) else None,
+                     separators=None if isinstance(obj, list) else (",", ":"))
     body = {"message": f"{Path(path).stem} [skip ci]", "content": base64.b64encode(txt.encode()).decode()}
     for _ in range(2):
         if sha:
@@ -653,6 +653,38 @@ def guardar(bots, meta):
     save_json(STATE_FILE, meta)
 
 
+def git_guardar():
+    """Sube data/state.json al repo (commit + push) sin romper el bucle si algo falla.
+
+    config.json y results.json se escriben por la API de GitHub, así que antes del push
+    se hace un pull --rebase para traer esos cambios. Requiere 'permissions: contents: write'
+    en el workflow.
+    """
+    def run(*cmd):
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+    try:
+        run("git", "config", "user.name", "github-actions[bot]")
+        run("git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
+        run("git", "add", "data/state.json")
+        if run("git", "diff", "--cached", "--quiet").returncode == 0:
+            return  # nada que guardar
+        c = run("git", "commit", "-m", "state [skip ci]")
+        if c.returncode != 0:
+            print("Aviso git commit:", (c.stderr or c.stdout)[:300])
+            return
+        p = run("git", "pull", "--rebase", "--autostash")
+        if p.returncode != 0:
+            print("Aviso git pull:", (p.stderr or p.stdout)[:300])
+            run("git", "rebase", "--abort")
+            return
+        p = run("git", "push")
+        if p.returncode != 0:
+            print("Aviso git push:", (p.stderr or p.stdout)[:300])
+    except Exception as e:
+        print("Aviso en git_guardar:", e)
+
+
 def iteracion(bots, meta):
     remota, sha = leer_config()
     bots[:] = fusionar(remota, meta)
@@ -678,9 +710,11 @@ def main():
         RES["items"] = (d or {}).get("items", [])
     except Exception as e:
         print("Aviso al leer novedades:", e)
+
     if LOOP_SECONDS <= 0:
         iteracion(bots, meta)
         return
+
     print(f"Modo bucle: {LOOP_SECONDS}s, cada {CHECK_INTERVAL}s")
     fin = time.time() + LOOP_SECONDS
     ultimo_git = time.time()
