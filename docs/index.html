@@ -97,6 +97,7 @@ main.wide{max-width:1100px}
 .mod .row button{min-height:46px}.mod button.d{background:var(--rd)}
 @keyframes mf{from{opacity:0}}@keyframes mp{from{opacity:0;transform:scale(.94) translateY(8px)}}
 .lg{flex-wrap:wrap;overflow:visible;padding:10px 0 0}
+.fl:empty{display:none}.fl2{padding-top:0;margin-top:-4px}.fl2 button{background:var(--soft)}
 .fbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.fbar:empty{display:none}.fbar button{min-height:36px;padding:0 14px;font-size:13px}
 .oh{margin:24px 0 12px;padding:10px 14px;border-radius:12px;background:var(--soft);border:1px dashed var(--bd);font-size:14px}.oh small{display:block;color:var(--mut);font-size:12.5px;margin-top:2px}
 </style></head><body><main>
@@ -131,7 +132,7 @@ main.wide{max-width:1100px}
    <p class="foot" style="text-align:left;margin:12px 0 0">Máx 1000 = sin límite. Los cambios se aplican en segundos.</p></div>
   <div id="list"></div>
  </div>
- <div id="tabFeed" class="hide"><div class="fl" id="fl"></div><div class="fbar" id="fbar"></div><div class="grid" id="grid"></div><div id="old"></div></div>
+ <div id="tabFeed" class="hide"><div class="fl" id="fl"></div><div class="fl fl2" id="fl2"></div><div class="fbar" id="fbar"></div><div class="grid" id="grid"></div><div id="old"></div></div>
  <p class="foot">Se bloquea solo tras 5 min sin usar</p>
 </div>
 </section></main><div id="m"></div>
@@ -141,7 +142,7 @@ const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder()
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LANGS=[["it","🇮🇹 Italiano"],["fr","🇫🇷 Francés"],["en","🇬🇧 Inglés"],["de","🇩🇪 Alemán"],["pt","🇵🇹 Portugués"],["jp","🇯🇵 Japonés"],["es","🇪🇸 Español"]];
-let LM="off",LS=[],cfgOk=false,feedSha=null;
+let LM="off",LS=[],cfgOk=false,fArc=false,feedSha=null;
 let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt,feed=[],fKw="",fPl="",tab="bots",fiv;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
 async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
@@ -222,13 +223,16 @@ function renderFeed(){const byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b]
   isA=x=>cfgOk&&!byKw.has(kk(x)),arch=feed.filter(isA),live=feed.filter(x=>!isA(x));
  const lk=[...new Set(live.map(kk))],ak=[...new Set(arch.map(kk))],kws=[...lk,...ak],nm={};feed.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
  const cnt=k=>arch.filter(x=>kk(x)==k).length;
+ if(!ak.length)fArc=false;
  if(fKw&&!kws.includes(fKw))fKw="";
- const inArch=!!fKw&&ak.includes(fKw),base=fKw?feed:live;
+ if(fArc){if(fKw&&!ak.includes(fKw))fKw=""}else if(ak.includes(fKw))fKw="";
+ const inArch=fArc,base=fArc?arch:fKw?feed:live;
  const chip=(l,on,fn)=>`<button class="${on?"on":""}" onclick="${fn}">${l}</button>`;
- $("#fl").innerHTML=chip("Todo",!fKw&&!fPl,"fKw='';fPl='';renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
-  +kws.map((k,i)=>chip((i>=lk.length?"🗄 "+esc(nm[k])+" ("+cnt(k)+")":esc(nm[k])),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("");window.kws_=kws;
+ $("#fl").innerHTML=chip("Todo",!fKw&&!fPl&&!fArc,"fKw='';fPl='';fArc=false;renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
+  +lk.map((k,i)=>chip(esc(nm[k]),!fArc&&fKw==k,"fArc=false;fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("")+(ak.length?chip("🗄 Archivados ("+arch.length+")",fArc,"fArc=true;fKw='';renderFeed()"):"");window.kws_=kws;
+ $("#fl2").innerHTML=fArc?chip("Todos ("+arch.length+")",!fKw,"fKw='';renderFeed()")+ak.map((k,j)=>chip(esc(nm[k])+" ("+cnt(k)+")",fKw==k,"fKw=kws_["+(lk.length+j)+"];renderFeed()")).join(""):"";
  const btn=(t,fn)=>`<button class="r ic" onclick="${fn}">${t}</button>`;
- $("#fbar").innerHTML=(fKw?btn("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(arch.length?btn("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?btn("🧹 Vaciar todo","clearFeed('all')"):"");
+ $("#fbar").innerHTML=(fKw?btn("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(fArc?btn("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?btn("🧹 Vaciar todo","clearFeed('all')"):"");
  const pin=x=>{const w=x.p!="Vinted",im=safe(x.im),nw=Date.now()/1000-x.t<600,b=byKw.get(kk(x)),
    cs=String(x.lg||"").split(",").filter(Boolean),fl=cs.map(c=>c=="?"?"🌐?":lflag(c)).join(" "),
    lt=fl?" · "+fl:(b&&b.lang_mode&&b.lang_mode!="off"?" · 🌐 sin detectar":"");
