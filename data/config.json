@@ -30,5 +30,13 @@
     "min_price": 0,
     "max_price": 1000,
     "source": "ambos"
+  },
+  {
+    "id": "c3qxioel",
+    "status": "running",
+    "keywords": "yona",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos"
   }
 ]
