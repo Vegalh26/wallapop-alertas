@@ -17,7 +17,7 @@
   },
   {
     "id": "1le7wf4e",
-    "status": "running",
+    "status": "paused",
     "keywords": "yona 27",
     "min_price": 0,
     "max_price": 1000,
@@ -29,7 +29,7 @@
   },
   {
     "id": "ikt0a9hs",
-    "status": "running",
+    "status": "paused",
     "keywords": "layton",
     "min_price": 0,
     "max_price": 25,
