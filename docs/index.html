@@ -38,12 +38,12 @@ button.g{background:var(--bd);color:var(--tx)}button.r{background:var(--rd)}butt
 
 <section id="app" class="hide">
 <div class="top"><h1>🤖 Wallapop Bots</h1><button class="g" onclick="lock()">🔒 Salir</button></div>
-<div class="card"><b>Nuevo bot</b>
+<div class="card"><b id="ft">Nuevo bot</b>
  <label>Búsqueda</label><input id="kw" placeholder="mario party" enterkeyhint="done">
  <div class="row"><div><label>Mín €</label><input id="mn" type="number" inputmode="numeric" value="0"></div>
  <div><label>Máx € (1000 = sin límite)</label><input id="mx" type="number" inputmode="numeric" value="1000"></div></div>
  <label>Dónde buscar</label><select id="src"><option value="ambos">Wallapop + Vinted</option><option value="wallapop">Solo Wallapop</option><option value="vinted">Solo Vinted</option></select>
- <div class="row" style="margin-top:14px"><button onclick="add()">Crear</button><button class="g" onclick="load()">↻ Recargar</button></div></div>
+ <div class="row" style="margin-top:14px"><button id="sv" onclick="add()">Crear</button><button id="cn" class="g hide" onclick="cancelEdit()">Cancelar</button><button class="g" onclick="load()">↻ Recargar</button></div></div>
 <div id="m"></div><div id="list"></div>
 <p style="color:var(--mut);font-size:12px">Los cambios se aplican en unos segundos. Se bloquea solo tras 5 min sin usar.</p>
 </section></main>
@@ -51,7 +51,7 @@ button.g{background:var(--bd);color:var(--tx)}button.r{background:var(--rd)}butt
 const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder();
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let TOK="",REPO="",cfg=[],sha=null,idle;
+let TOK="",REPO="",cfg=[],sha=null,idle,ed=null;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
 async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:200000,hash:"SHA-256"},k,{name:"AES-GCM",length:256},false,["encrypt","decrypt"])}
@@ -84,7 +84,7 @@ async function enter(){const lm=$("#lm");lm.textContent="";$("#go").disabled=tru
     throw"PIN incorrecto ("+(5-f)+" intentos restantes)"}}
   $("#lock").classList.add("hide");$("#app").classList.remove("hide");bump();load();
  }catch(e){lm.textContent=typeof e=="string"?e:"Error de conexión"}finally{$("#go").disabled=false}}
-async function load(){msg("Cargando…");
+async function load(){cancelEdit();msg("Cargando…");
  const r=await fetch(api(),{headers:hd(),cache:"no-store"});
  if(r.status==404){cfg=[];sha=null}else if(!r.ok){msg("Error "+r.status+" al leer el repo",1);return}
  else{const j=await r.json();sha=j.sha;cfg=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))}
@@ -95,11 +95,17 @@ async function push(t){const b={message:t,content:btoa(unescape(encodeURICompone
  sha=(await r.json()).content.sha;render();msg("Guardado ✓")}
 function render(){$("#list").innerHTML=cfg.length?cfg.map((b,i)=>`<div class="card bot"><div><b>${esc(b.keywords)}</b>
  <small>${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"} · ${({wallapop:"Wallapop",vinted:"Vinted"})[b.source]||"Wallapop + Vinted"} · ${b.status=="paused"?"⏸ pausado":"▶️ activo"}</small></div>
- <div class="act"><button class="g" onclick="tog(${i})">${b.status=="paused"?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`).join(""):'<div class="card">No hay bots todavía.</div>'}
+ <div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${b.status=="paused"?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`).join(""):'<div class="card">No hay bots todavía.</div>'}
 function add(){const k=$("#kw").value.trim();if(!k)return;
- cfg.push({id:Math.random().toString(36).slice(2,10),keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,status:"running",source:$("#src").value});$("#kw").value="";push("nuevo bot")}
-function tog(i){cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
-function del(i){if(confirm("¿Borrar "+cfg[i].keywords+"?")){cfg.splice(i,1);push("borrar bot")}}
+ const d={keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,source:$("#src").value};
+ const nid=()=>Math.random().toString(36).slice(2,10);
+ if(ed!==null){const b=cfg[ed];if(b.keywords.toLowerCase()!==k.toLowerCase())b.id=nid();/* otra búsqueda = empieza de cero */Object.assign(b,d);cancelEdit();push("editar bot");return}
+ cfg.push({id:nid(),status:"running",...d});cancelEdit();push("nuevo bot")}
+function edit(i){const b=cfg[i];ed=i;$("#kw").value=b.keywords;$("#mn").value=b.min_price;$("#mx").value=b.max_price;$("#src").value=b.source||"ambos";
+ $("#ft").textContent="Editando: "+b.keywords;$("#sv").textContent="Guardar cambios";$("#cn").classList.remove("hide");scrollTo({top:0,behavior:"smooth"});$("#kw").focus()}
+function cancelEdit(){ed=null;$("#kw").value="";$("#mn").value=0;$("#mx").value=1000;$("#src").value="ambos";$("#ft").textContent="Nuevo bot";$("#sv").textContent="Crear";$("#cn").classList.add("hide")}
+function tog(i){if(ed!==null)cancelEdit();cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
+function del(i){if(ed!==null)cancelEdit();if(confirm("¿Borrar "+cfg[i].keywords+"?")){cfg.splice(i,1);push("borrar bot")}}
 document.addEventListener("keydown",e=>{if(e.key=="Enter"&&!$("#lock").classList.contains("hide"))enter()});
 showLock();
 </script></body></html>
