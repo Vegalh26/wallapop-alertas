@@ -141,7 +141,7 @@ const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder()
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LANGS=[["it","🇮🇹 Italiano"],["fr","🇫🇷 Francés"],["en","🇬🇧 Inglés"],["de","🇩🇪 Alemán"],["pt","🇵🇹 Portugués"],["jp","🇯🇵 Japonés"],["es","🇪🇸 Español"]];
-let LM="off",LS=[],cfgOk=false,fArc=false,feedSha=null;
+let LM="off",LS=[],cfgOk=false,feedSha=null;
 let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt,feed=[],fKw="",fPl="",tab="bots",fiv;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
 async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
@@ -220,14 +220,15 @@ function fLabel(f){const [mn,mx,src,lg]=String(f).split("|"),[m,ls]=(lg||"off:")
  return mn+"€ – "+(+mx>=1000?"sin límite":mx+"€")+" · "+(SRCN[src]||src)+(lt?" · "+lt:"")}
 function renderFeed(){const byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b])),kk=x=>String(x.kw).toLowerCase(),
   isA=x=>cfgOk&&!byKw.has(kk(x)),arch=feed.filter(isA),live=feed.filter(x=>!isA(x));
- if(!arch.length)fArc=false;
- const base=fArc?arch:live,kws=[...new Set(base.map(kk))],nm={};base.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
+ const lk=[...new Set(live.map(kk))],ak=[...new Set(arch.map(kk))],kws=[...lk,...ak],nm={};feed.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
+ const cnt=k=>arch.filter(x=>kk(x)==k).length;
  if(fKw&&!kws.includes(fKw))fKw="";
+ const inArch=!!fKw&&ak.includes(fKw),base=fKw?feed:live;
  const chip=(l,on,fn)=>`<button class="${on?"on":""}" onclick="${fn}">${l}</button>`;
- $("#fl").innerHTML=chip("Todo",!fKw&&!fPl&&!fArc,"fKw='';fPl='';fArc=false;renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
-  +kws.map((k,i)=>chip(esc(nm[k]),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("")+(arch.length?chip("🗄 Archivados ("+arch.length+")",fArc,"fArc=!fArc;fKw='';renderFeed()"):"");window.kws_=kws;
+ $("#fl").innerHTML=chip("Todo",!fKw&&!fPl,"fKw='';fPl='';renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
+  +kws.map((k,i)=>chip((i>=lk.length?"🗄 "+esc(nm[k])+" ("+cnt(k)+")":esc(nm[k])),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("");window.kws_=kws;
  const btn=(t,fn)=>`<button class="r ic" onclick="${fn}">${t}</button>`;
- $("#fbar").innerHTML=(fKw?btn("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):fArc?btn("🗑 Vaciar archivados","clearFeed('arc')"):"")+(feed.length?btn("🧹 Vaciar todo","clearFeed('all')"):"");
+ $("#fbar").innerHTML=(fKw?btn("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(arch.length?btn("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?btn("🧹 Vaciar todo","clearFeed('all')"):"");
  const pin=x=>{const w=x.p!="Vinted",im=safe(x.im),nw=Date.now()/1000-x.t<600,b=byKw.get(kk(x)),
    cs=String(x.lg||"").split(",").filter(Boolean),fl=cs.map(c=>c=="?"?"🌐?":lflag(c)).join(" "),
    lt=fl?" · "+fl:(b&&b.lang_mode&&b.lang_mode!="off"?" · 🌐 sin detectar":"");
@@ -236,9 +237,9 @@ function renderFeed(){const byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b]
   <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}${lt}</small></div></a>`};
  const L=base.filter(x=>(!fKw||kk(x)==fKw)&&(!fPl||x.p==fPl)),cur=[],old=new Map();
  for(const x of L){const b=byKw.get(kk(x));
-  if(fArc||!b||!x.f||x.f==fKey(b))cur.push(x);
+  if(inArch||!b||!x.f||x.f==fKey(b))cur.push(x);
   else{const k=kk(x)+"\u0001"+x.f;if(!old.has(k))old.set(k,{kw:x.kw,f:x.f,it:[]});old.get(k).it.push(x)}}
- $("#grid").innerHTML=cur.length?cur.map(pin).join(""):old.size?"":'<div class="card empty" style="column-span:all"><div class="big">✨</div><b>'+(fArc?"Nada archivado":"Aún no hay novedades")+'</b><br>'+(fArc?"Aquí van los anuncios de los bots que borres.":"Cuando el bot encuentre anuncios aparecerán aquí.")+'</div>';
+ $("#grid").innerHTML=cur.length?cur.map(pin).join(""):old.size?"":'<div class="card empty" style="column-span:all"><div class="big">✨</div><b>Aún no hay novedades</b><br>Cuando el bot encuentre anuncios aparecerán aquí.</div>';
  $("#old").innerHTML=[...old.values()].map(g=>`<div class="oh">🕘 <b>${esc(g.kw)}</b> · bot anterior<small>${esc(fLabel(g.f))}</small></div><div class="grid">${g.it.map(pin).join("")}</div>`).join("")}
 async function saveFeed(items){const b={message:"limpiar novedades [skip ci]",content:btoa(unescape(encodeURIComponent(JSON.stringify({items}))))};if(feedSha)b.sha=feedSha;
  const r=await fetch(apiF(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
@@ -247,7 +248,8 @@ async function saveFeed(items){const b={message:"limpiar novedades [skip ci]",co
 async function clearFeed(mode){const kw=fKw;if(mode!="all"&&!cfgOk){msg("Espera a que carguen los bots",1);return}
  const t=mode=="all"?["¿Vaciar todas las novedades?","Se borrarán todos los anuncios de Novedades, también los archivados. Tus bots no se tocan.","Vaciar todo"]
   :mode=="arc"?["¿Vaciar archivados?","Se borrarán los anuncios de los bots que ya no existen.","Vaciar"]
-  :["¿Vaciar «"+kw+"»?","Se borrarán todas las novedades de este bot, también las de configuraciones anteriores. El bot sigue activo.","Vaciar"];
+  :cfg.some(b=>b.keywords.toLowerCase()==kw)?["¿Vaciar «"+kw+"»?","Se borrarán todas las novedades de este bot, también las de configuraciones anteriores. El bot sigue activo.","Vaciar"]
+  :["¿Vaciar archivados de «"+kw+"»?","Se borrarán las novedades archivadas de este bot borrado.","Vaciar"];
  if(!await ask(t[0],t[1],t[2]))return;
  if(!await loadFeed(true)){msg("Sin conexión",1);return}   /* trae lo último y su sha */
  const has=new Set(cfg.map(b=>b.keywords.toLowerCase())),k=x=>String(x.kw).toLowerCase();
