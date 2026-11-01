@@ -38,5 +38,15 @@
     "langs": [
       "es"
     ]
+  },
+  {
+    "id": "a9sxwu16",
+    "status": "running",
+    "keywords": "switch sports",
+    "min_price": 0,
+    "max_price": 35,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": []
   }
 ]
