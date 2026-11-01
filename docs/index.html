@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f1214"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Wallapop">
-<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230fb5a2'/%3E%3Ctext x='50' y='72' font-size='62' text-anchor='middle'%3E🤖%3C/text%3E%3C/svg%3E"><link rel="icon" type="image/png" href="icon-192.png">
 <title>Wallapop Bots</title>
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--tx:#1a1d21;--mut:#6b7280;--ac:#0fb5a2;--bd:#e3e6ea;--rd:#e5484d}
@@ -12,7 +12,7 @@ body{margin:0;font:16px system-ui,sans-serif;background:var(--bg);color:var(--tx
 main{max-width:620px;margin:0 auto;padding:18px 14px 40px}h1{font-size:22px;margin:0}
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
-input{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit;margin-top:4px}
+input,select{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit;margin-top:4px}
 label{font-size:12px;color:var(--mut);display:block;margin-top:10px}
 button{min-height:46px;border:0;border-radius:10px;padding:0 16px;background:var(--ac);color:#fff;font:inherit;font-weight:600;cursor:pointer}
 button.g{background:var(--bd);color:var(--tx)}button.r{background:var(--rd)}button.w{width:100%;margin-top:14px}
@@ -42,6 +42,7 @@ button.g{background:var(--bd);color:var(--tx)}button.r{background:var(--rd)}butt
  <label>Búsqueda</label><input id="kw" placeholder="mario party" enterkeyhint="done">
  <div class="row"><div><label>Mín €</label><input id="mn" type="number" inputmode="numeric" value="0"></div>
  <div><label>Máx € (1000 = sin límite)</label><input id="mx" type="number" inputmode="numeric" value="1000"></div></div>
+ <label>Dónde buscar</label><select id="src"><option value="ambos">Wallapop + Vinted</option><option value="wallapop">Solo Wallapop</option><option value="vinted">Solo Vinted</option></select>
  <div class="row" style="margin-top:14px"><button onclick="add()">Crear</button><button class="g" onclick="load()">↻ Recargar</button></div></div>
 <div id="m"></div><div id="list"></div>
 <p style="color:var(--mut);font-size:12px">Los cambios se aplican en unos segundos. Se bloquea solo tras 5 min sin usar.</p>
@@ -93,10 +94,10 @@ async function push(t){const b={message:t,content:btoa(unescape(encodeURICompone
  if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await load();return}
  sha=(await r.json()).content.sha;render();msg("Guardado ✓")}
 function render(){$("#list").innerHTML=cfg.length?cfg.map((b,i)=>`<div class="card bot"><div><b>${esc(b.keywords)}</b>
- <small>${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"} · ${b.status=="paused"?"⏸ pausado":"▶️ activo"}</small></div>
+ <small>${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"} · ${({wallapop:"Wallapop",vinted:"Vinted"})[b.source]||"Wallapop + Vinted"} · ${b.status=="paused"?"⏸ pausado":"▶️ activo"}</small></div>
  <div class="act"><button class="g" onclick="tog(${i})">${b.status=="paused"?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`).join(""):'<div class="card">No hay bots todavía.</div>'}
 function add(){const k=$("#kw").value.trim();if(!k)return;
- cfg.push({id:Math.random().toString(36).slice(2,10),keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,status:"running"});$("#kw").value="";push("nuevo bot")}
+ cfg.push({id:Math.random().toString(36).slice(2,10),keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,status:"running",source:$("#src").value});$("#kw").value="";push("nuevo bot")}
 function tog(i){cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
 function del(i){if(confirm("¿Borrar "+cfg[i].keywords+"?")){cfg.splice(i,1);push("borrar bot")}}
 document.addEventListener("keydown",e=>{if(e.key=="Enter"&&!$("#lock").classList.contains("hide"))enter()});
