@@ -44,7 +44,7 @@ IDIOMAS = {
     "it": ("Italiano", ["italiano", "italiana", "italiani", "italian", "italia", "italy", "ita", "ital",
                         "gioco", "giochi", "usato", "nuovo", "edizione", "versione", "della", "dello", "delle",
                         "degli", "dei", "gli", "il", "nel", "nella", "scatola", "originale", "spedizione",
-                        "professore", "e il", "e la", "e lo", "e i", "e gli", "e le"]),
+                        "professore", "di", "inglese", "fumetto", "segnalibro", "e il", "e la", "e lo", "e i", "e gli", "e le"]),
     "fr": ("Francés", ["frances", "francesa", "francais", "francaise", "french", "france", "francia", "fra",
                        "fr", "jeu", "jeux", "occasion", "boite", "avec", "livraison", "professeur",
                        "et", "des", "du", "aux", "les", "pour", "dans", "une", "etat"]),
@@ -73,12 +73,60 @@ def _sin_acentos(t):
 _PAISES = re.compile(r"\b(?:italia|italy|france|francia|germany|alemania|portugal|japan|japon|spain|uk)\b")
 
 
+# ---------- Detector estadístico (lingua) ----------
+# Se usa SOLO cuando las listas de palabras no encuentran ninguna pista. Si lingua no está instalada,
+# el filtro sigue funcionando solo con las listas. Umbrales ajustables:
+LG_MIN = 0.50         # confianza mínima del idioma ganador
+LG_MARGEN = 0.25      # ventaja mínima sobre el segundo (si dudan entre dos idiomas, no se decide)
+LG_MIN_EN = 0.70      # el inglés exige más: muchos juegos/mangas en español conservan el título inglés
+_LG_MAP = {"ES": "es", "IT": "it", "FR": "fr", "EN": "en", "DE": "de", "PT": "pt", "JA": "jp"}
+_det = None           # None = sin construir; False = lingua no disponible
+
+
+def _detector():
+    global _det
+    if _det is None:
+        try:
+            from lingua import Language, LanguageDetectorBuilder
+            langs = [getattr(Language, n) for n in ("SPANISH", "ITALIAN", "FRENCH", "ENGLISH",
+                                                    "GERMAN", "PORTUGUESE", "JAPANESE")]
+            _det = LanguageDetectorBuilder.from_languages(*langs).build()
+        except Exception as e:
+            print("Aviso: lingua no disponible, solo se usan las listas de palabras:", e)
+            _det = False
+    return _det
+
+
+def idioma_detectado(titulo, desc=""):
+    """Código de idioma ('es','it',...) si lingua lo tiene claro; None si no."""
+    d = _detector()
+    texto = f"{titulo}. {desc}".strip()
+    if not d or len(texto) < 8:
+        return None
+    try:
+        c = d.compute_language_confidence_values(texto)
+    except Exception:
+        return None
+    if not c:
+        return None
+    cod = _LG_MAP.get(c[0].language.iso_code_639_1.name)
+    segundo = c[1].value if len(c) > 1 else 0.0
+    minimo = LG_MIN_EN if cod == "en" else LG_MIN
+    if cod and c[0].value >= minimo and c[0].value - segundo >= LG_MARGEN:
+        return cod
+    return None
+
+
 def idiomas_en(titulo, desc=""):
     t = _sin_acentos(titulo)
     d = _PAISES.sub(" ", _sin_acentos(desc))
     out = {c for c, rx in _IDI_RE.items() if rx.search(t) or rx.search(d)}
     if _ELISION.search(t) or _ELISION.search(d):
         out.add("?")
+    if not out:  # sin pistas en las listas: preguntar al detector estadístico
+        cod = idioma_detectado(titulo, desc)
+        if cod:
+            out.add(cod)
     return out
 
 
