@@ -16,18 +16,6 @@
     "source": "ambos"
   },
   {
-    "id": "omt3imuh",
-    "status": "running",
-    "keywords": "layton",
-    "min_price": 0,
-    "max_price": 25,
-    "source": "ambos",
-    "lang_mode": "solo",
-    "langs": [
-      "es"
-    ]
-  },
-  {
     "id": "1le7wf4e",
     "status": "running",
     "keywords": "yona 27",
