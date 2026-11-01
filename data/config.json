@@ -28,5 +28,17 @@
     "source": "ambos",
     "lang_mode": "off",
     "langs": []
+  },
+  {
+    "id": "z6y91wkg",
+    "status": "running",
+    "keywords": "layton",
+    "min_price": 0,
+    "max_price": 25,
+    "source": "ambos",
+    "lang_mode": "solo",
+    "langs": [
+      "es"
+    ]
   }
 ]
