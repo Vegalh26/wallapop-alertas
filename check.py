@@ -12,8 +12,10 @@ import hashlib
 import html
 import json
 import os
+import re
 import subprocess
 import time
+import unicodedata
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -30,9 +32,67 @@ CFG_FILE = DATA_DIR / "config.json"    # bots definidos (lo editan el panel web 
 STATE_FILE = DATA_DIR / "state.json"   # anuncios ya vistos, offset de Telegram...
 REPO = os.environ.get("GITHUB_REPOSITORY", "")
 GH_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status", "source")
+CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status", "source", "lang_mode", "langs")
 FUENTES = ("wallapop", "vinted", "ambos")
 VINTED_TLD = os.environ.get("VINTED_TLD", "es")
+
+# ---------- Filtro de idioma ----------
+# Ni Wallapop ni Vinted dan el idioma del juego como dato: se deduce de palabras del título
+# (y de los primeros 200 caracteres de la descripción, si el anuncio la trae).
+IDIOMAS = {
+    "it": ("Italiano", ["italiano", "italiana", "italiani", "italian", "italia", "italy", "ita", "ital",
+                        "gioco", "giochi", "usato", "nuovo", "edizione", "versione", "della", "scatola",
+                        "originale", "spedizione"]),
+    "fr": ("Francés", ["frances", "francesa", "francais", "francaise", "french", "france", "francia", "fra",
+                       "fr", "jeu", "jeux", "occasion", "boite", "avec", "livraison"]),
+    "en": ("Inglés", ["ingles", "inglesa", "english", "eng", "uk", "ntsc-u"]),
+    "de": ("Alemán", ["aleman", "alemana", "alemania", "german", "germany", "deutsch", "deutsche", "ger",
+                      "deu", "spiel", "gebraucht", "und", "versand"]),
+    "pt": ("Portugués", ["portugues", "portuguesa", "portuguese", "portugal", "pt", "jogo"]),
+    "jp": ("Japonés", ["japones", "japonesa", "japanese", "japan", "japon", "jp", "jpn", "ntsc-j"]),
+    "es": ("Español", ["espanol", "espanola", "castellano", "spanish", "spain", "esp", "spa"]),
+}
+_IDI_RE = {c: re.compile(r"\b(?:" + "|".join(re.escape(w) for w in ws) + r")\b")
+           for c, (_n, ws) in IDIOMAS.items()}
+
+
+def _sin_acentos(t):
+    t = unicodedata.normalize("NFKD", str(t).lower())
+    return "".join(c for c in t if not unicodedata.combining(c))
+
+
+# En la descripción se ignoran los nombres de país: suelen ser avisos de envío ("no envío a Italia").
+_PAISES = re.compile(r"\b(?:italia|italy|france|francia|germany|alemania|portugal|japan|japon|spain|uk)\b")
+
+
+def idiomas_en(titulo, desc=""):
+    t = _sin_acentos(titulo)
+    d = _PAISES.sub(" ", _sin_acentos(desc))
+    return {c for c, rx in _IDI_RE.items() if rx.search(t) or rx.search(d)}
+
+
+def pasa_idioma(b, r):
+    """True si el anuncio 'r' cumple el filtro de idioma del bot 'b'.
+    excluir: se descarta si menciona alguno de los idiomas elegidos.
+    solo:    se descarta si menciona otros idiomas y ninguno de los elegidos
+             (los anuncios que no mencionan idioma se mantienen)."""
+    modo = b.get("lang_mode", "off")
+    langs = set(b.get("langs") or [])
+    if modo not in ("excluir", "solo") or not langs:
+        return True
+    hay = idiomas_en(r.get("nombre", ""), r.get("desc", ""))
+    if modo == "excluir":
+        return not (hay & langs)
+    return not hay or bool(hay & langs)
+
+
+def filtro_txt(b):
+    modo, langs = b.get("lang_mode", "off"), b.get("langs") or []
+    if modo not in ("excluir", "solo") or not langs:
+        return ""
+    nombres = ", ".join(IDIOMAS[c][0] for c in langs if c in IDIOMAS)
+    return f"🌐 {'Solo' if modo == 'solo' else 'Sin'}: {nombres}\n"
+
 
 ORDER_BY = "newest"
 # Wallapop ha ido cambiando de endpoint; se prueban en orden si uno da 404.
@@ -132,7 +192,7 @@ def bot_text(b):
         f"🤖 <b>{esc(b['keywords'])}</b>\n"
         f"💰 {b['min_price']}€ – {fmt_max(b['max_price'])}\n"
         f"🔎 {ETIQ.get(b.get('source', 'ambos'))}\n"
-        f"Estado: {emoji} {b['status']}"
+        f"{filtro_txt(b)}Estado: {emoji} {b['status']}"
     )
 
 
@@ -242,6 +302,8 @@ def on_message(m, bots):
             "max_price": mx,
             "status": "running",
             "source": "ambos",
+            "lang_mode": "off",
+            "langs": [],
             "first_done": False,
             "seen": [],
         })
@@ -405,6 +467,7 @@ def buscar(keywords, min_price, max_price):
             "enlace": f"https://es.wallapop.com/item/{slug}",
             "plat": "Wallapop",
             "img": _primera_url(content.get("images")),
+            "desc": str(content.get("description") or "")[:200],
         })
     return resultados
 
@@ -469,7 +532,7 @@ def buscar_vinted(keywords, min_price, max_price):
         if enlace.startswith("/"):  # Vinted a veces devuelve solo la ruta
             enlace = base + enlace
         out.append({"nombre": titulo, "precio": precio, "plat": "Vinted", "enlace": enlace,
-                    "img": _primera_url(it.get("photo"))})
+                    "img": _primera_url(it.get("photo")), "desc": str(it.get("description") or "")[:200]})
     return out
 
 
@@ -501,6 +564,7 @@ def comprobar_bots(bots, meta):
                 n_err += 1
         if fallos == len(pedidos):
             continue  # todo falló: no tocamos el estado
+        resultados = [r for r in resultados if pasa_idioma(b, r)]  # filtro de idioma
         ok += 1
 
         previos = b.get("seen", [])
@@ -553,6 +617,8 @@ def norm(cfg):
             continue
         mx = c.get("max_price")
         st = c.get("status")
+        modo = c.get("lang_mode") if c.get("lang_mode") in ("excluir", "solo") else "off"
+        langs = [l for l in (c.get("langs") or []) if l in IDIOMAS] if modo != "off" else []
         out.append({
             "id": str(c.get("id") or hashlib.md5(kw.encode()).hexdigest()[:8]),
             "keywords": kw,
@@ -560,6 +626,8 @@ def norm(cfg):
             "max_price": SIN_LIMITE if mx in (None, "") else int(mx),
             "status": st if st in ("running", "paused") else "running",
             "source": c.get("source") if c.get("source") in FUENTES else "ambos",
+            "lang_mode": modo if langs else "off",
+            "langs": langs,
         })
     return out
 
