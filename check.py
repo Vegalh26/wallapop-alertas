@@ -772,13 +772,14 @@ ARCH_MAX = 100  # novedades de bots borrados (se muestran en "Archivados")
 
 def registrar(b, items):
     t = int(time.time())
-    ya = {x["id"] for x in RES["new"]}
+    kwl = b["keywords"].lower()
+    ya = {(x["id"], str(x.get("kw", "")).lower()) for x in RES["new"]}  # un mismo anuncio puede salir en varios bots
     lote = []
     for r in items:
         i = key_de(r)
-        if i in ya:
+        if (i, kwl) in ya:
             continue
-        ya.add(i)
+        ya.add((i, kwl))
         lote.append({"id": i, "t": t, "kw": b["keywords"], "p": r.get("plat", "Wallapop"), "n": r["nombre"],
                      "pr": r["precio"], "u": r["enlace"], "im": r.get("img", ""),
                      "f": firma(b), "lg": ",".join(r.get("lg", []))})
@@ -807,8 +808,8 @@ def guardar_recientes(bots=None):
     for _ in range(3):
         d, sha = leer_json_repo("data/results.json", {"items": []})
         remoto = (d or {}).get("items", [])
-        ids = {x["id"] for x in remoto}
-        merged = [x for x in RES["new"] if x["id"] not in ids] + remoto
+        ids = {(x["id"], str(x.get("kw", "")).lower()) for x in remoto}
+        merged = [x for x in RES["new"] if (x["id"], str(x.get("kw", "")).lower()) not in ids] + remoto
         merged = recortar(merged, kws) if kws is not None else merged[:RES_MAX + ARCH_MAX]
         try:
             RES["sha"] = escribir_json_repo("data/results.json", {"items": merged}, sha)
