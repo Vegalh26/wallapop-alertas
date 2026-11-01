@@ -38,5 +38,17 @@
     "langs": [
       "es"
     ]
+  },
+  {
+    "id": "nnpg9ofu",
+    "status": "running",
+    "keywords": "yona",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "solo",
+    "langs": [
+      "es"
+    ]
   }
 ]
