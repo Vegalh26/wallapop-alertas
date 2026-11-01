@@ -89,6 +89,13 @@ main.wide{max-width:1100px}
  .grid{column-count:4;column-gap:16px}.pin{margin-bottom:16px}
 }
 @media(min-width:1500px){.grid{column-count:5}}
+
+/* ===== modal de confirmación ===== */
+.mod{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:rgba(10,12,15,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:mf .15s}
+.mod .box{width:100%;max-width:360px;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:20px;padding:22px 20px 18px;box-shadow:0 20px 50px rgba(0,0,0,.35);animation:mp .18s}
+.mod h3{margin:0 0 6px;font-size:18px}.mod p{margin:0 0 18px;color:var(--mut);font-size:15px;word-break:break-word}
+.mod .row button{min-height:46px}.mod button.d{background:var(--rd)}
+@keyframes mf{from{opacity:0}}@keyframes mp{from{opacity:0;transform:scale(.94) translateY(8px)}}
 </style></head><body><main>
 
 <section id="lock" class="lock hide"><div class="logo">🤖</div><h1>Wallapop Bots</h1><p class="sub">Alertas de Wallapop y Vinted</p>
@@ -122,6 +129,7 @@ main.wide{max-width:1100px}
  <p class="foot">Se bloquea solo tras 5 min sin usar</p>
 </div>
 </section></main><div id="m"></div>
+<div id="mod" class="mod hide" role="dialog" aria-modal="true" aria-labelledby="mt"><div class="box"><h3 id="mt"></h3><p id="mb"></p><div class="row"><button class="g" id="mno">Cancelar</button><button class="d" id="mok">Borrar</button></div></div></div>
 <script>
 const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder();
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
@@ -140,7 +148,15 @@ function showLock(){setTab("bots");clearTimeout(idle);TOK="";cfg=[];$("#app").cl
  const s=store();$("#first").classList.toggle("hide",!!s);$("#again").classList.toggle("hide",!s);$("#forget").classList.toggle("hide",!s);$("#lm").textContent="";
  $("#pin1").value=$("#pin2").value="";if(!s){const g=location.hostname.endsWith(".github.io")?location.hostname.split(".")[0]+"/"+(location.pathname.split("/")[1]||""):"";$("#repo").value=g;$("#tok").value=""}}
 function lock(){showLock()}
-function forget(){if(confirm("¿Borrar el acceso guardado en este dispositivo?")){localStorage.removeItem("wb");localStorage.removeItem("wbf");showLock()}}
+function ask(title,msg,ok){return new Promise(res=>{
+ const o=$("#mod"),yes=$("#mok"),no=$("#mno"),prev=document.activeElement;
+ $("#mt").textContent=title;$("#mb").textContent=msg;yes.textContent=ok||"Aceptar";o.classList.remove("hide");no.focus();
+ const done=v=>{o.classList.add("hide");yes.onclick=no.onclick=o.onclick=null;document.removeEventListener("keydown",kd,true);if(prev&&prev.focus)prev.focus();res(v)};
+ const kd=e=>{if(e.key=="Escape"){e.preventDefault();e.stopPropagation();done(false)}else if(e.key=="Enter")e.stopPropagation()};
+ document.addEventListener("keydown",kd,true);
+ yes.onclick=()=>done(true);no.onclick=()=>done(false);o.onclick=e=>{if(e.target===o)done(false)};
+})}
+async function forget(){if(await ask("¿Olvidar este dispositivo?","Se borrará el acceso guardado aquí (repo, token y PIN). Tendrás que volver a configurarlo.","Olvidar")){localStorage.removeItem("wb");localStorage.removeItem("wbf");showLock()}}
 function bump(){clearTimeout(idle);idle=setTimeout(lock,300000)}
 ["click","keydown","touchstart"].forEach(e=>addEventListener(e,()=>{if(TOK)bump()}));
 async function enter(){const lm=$("#lm");lm.textContent="";$("#go").disabled=true;
@@ -206,7 +222,7 @@ function edit(i){const b=cfg[i];ed=i;$("#kw").value=b.keywords;$("#mn").value=b.
  $("#ft").textContent="Editando: "+b.keywords;$("#sv").textContent="Guardar cambios";$("#cn").classList.remove("hide");scrollTo({top:0,behavior:"smooth"});$("#kw").focus()}
 function cancelEdit(){ed=null;$("#kw").value="";$("#mn").value=0;$("#mx").value=1000;setSrc("ambos");$("#ft").textContent="Nuevo bot";$("#sv").textContent="Crear bot";$("#cn").classList.add("hide")}
 function tog(i){if(ed!==null)cancelEdit();cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
-function del(i){if(ed!==null)cancelEdit();if(confirm("¿Borrar "+cfg[i].keywords+"?")){cfg.splice(i,1);push("borrar bot")}}
+async function del(i){if(ed!==null)cancelEdit();const b=cfg[i];if(!b)return;if(await ask("¿Borrar este bot?","Se eliminará «"+b.keywords+"» y dejarás de recibir sus avisos.","Borrar")){const j=cfg.indexOf(b);if(j<0)return;cfg.splice(j,1);push("borrar bot")}}
 document.addEventListener("keydown",e=>{if(e.key=="Enter"){if(!$("#lock").classList.contains("hide"))enter();else if(document.activeElement&&["kw","mn","mx"].includes(document.activeElement.id))add()}});
 showLock();
 </script></body></html>
