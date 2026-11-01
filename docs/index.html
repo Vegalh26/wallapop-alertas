@@ -12,7 +12,7 @@
 body{margin:0;font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--tx);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 main{max-width:640px;margin:0 auto;padding:16px 14px 90px}
 .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--ac),var(--ac2));display:grid;place-items:center;font-size:23px;box-shadow:0 4px 12px rgba(15,181,162,.35)}
-.top{display:flex;align-items:center;gap:12px;margin-bottom:16px}.top div{flex:1}.top h1{font-size:20px;margin:0;line-height:1.1}.top small{color:var(--mut);font-size:13px}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:16px}.top .tt{flex:1;min-width:0}.top h1{font-size:20px;margin:0;line-height:1.1}.top small{color:var(--mut);font-size:13px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--sh)}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
 .stat{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;text-align:center;box-shadow:var(--sh)}.stat b{display:block;font-size:24px}.stat span{font-size:12px;color:var(--mut)}
@@ -23,7 +23,7 @@ input:focus{border-color:var(--ac);background:var(--card);box-shadow:0 0 0 3px r
 button{min-height:48px;border:0;border-radius:12px;padding:0 16px;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font:inherit;font-weight:600;cursor:pointer;transition:.12s}
 button:active{transform:scale(.97)}button:disabled{opacity:.6}
 button.g{background:var(--soft);color:var(--tx);border:1px solid var(--bd)}button.r{background:transparent;color:var(--rd);border:1px solid var(--rd)}
-button.ic{min-height:40px;padding:0 12px;font-size:14px}.w{width:100%;margin-top:16px}
+button.ic{min-height:40px;padding:0 12px;font-size:14px}.full{width:100%;margin-top:16px}
 .row{display:flex;gap:10px}.row>*{flex:1;min-width:0}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--soft);padding:5px;border-radius:13px;border:1px solid var(--bd)}
 .seg button{min-height:40px;background:transparent;color:var(--mut);font-size:13px;padding:0 6px;box-shadow:none;border:0}
@@ -34,8 +34,8 @@ button.ic{min-height:40px;padding:0 12px;font-size:14px}.w{width:100%;margin-top
 @media(prefers-color-scheme:dark){.pill.on{color:#3fd9c6}}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
 .chip{font-size:12.5px;padding:4px 10px;border-radius:99px;background:var(--soft);border:1px solid var(--bd);color:var(--mut)}
-.chip.w{background:rgba(15,181,162,.1);border-color:transparent;color:var(--ac2);margin:0;width:auto}.chip.v{background:rgba(124,77,255,.12);border-color:transparent;color:var(--vi)}
-.act{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.act button{min-height:42px;padding:0 6px;font-size:14px}
+.chip.cw{background:rgba(15,181,162,.1);border-color:transparent;color:var(--ac2)}.chip.cv{background:rgba(124,77,255,.12);border-color:transparent;color:var(--vi)}
+.act{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.act button{min-height:42px;padding:0 4px;font-size:13.5px;white-space:nowrap}
 .empty{text-align:center;color:var(--mut);padding:30px 16px}.empty .big{font-size:38px}
 .hide{display:none!important}
 .lock{margin-top:9vh;text-align:center}.lock .logo{width:72px;height:72px;font-size:40px;border-radius:20px;margin:0 auto 14px}.lock h1{font-size:26px;margin:0 0 4px}
@@ -54,9 +54,41 @@ main.wide{max-width:1100px}
 .ph{position:relative;background:var(--soft)}.ph img{width:100%;display:block;min-height:110px;object-fit:cover}
 .ph.noimg{height:150px;display:grid;place-items:center;background:linear-gradient(135deg,var(--soft),var(--bd))}.ph.noimg::after{content:"🛍️";font-size:34px;opacity:.6}
 .pr{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.75);color:#fff;border-radius:99px;padding:3px 10px;font-weight:700;font-size:13px}
-.pl{position:absolute;right:8px;top:8px;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;color:#fff}.pl.w{background:var(--ac2)}.pl.v{background:var(--vi)}
+.pl{position:absolute;right:8px;top:8px;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;color:#fff}.pl.pw{background:var(--ac2)}.pl.pv{background:var(--vi)}
 .nw{position:absolute;left:8px;top:8px;background:var(--rd);color:#fff;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700}
 .pb{padding:10px 12px 12px}.pb b{font-size:14px;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}.pb small{display:block;margin-top:6px;color:var(--mut);font-size:12px}
+
+/* ===== estructura y responsive ===== */
+.lock{max-width:440px;margin-left:auto;margin-right:auto}
+.foot{color:var(--mut);font-size:12px;text-align:center;margin:8px 0 0}
+#list{display:grid;gap:14px;grid-template-columns:1fr}#list .card{margin:0}.empty{grid-column:1/-1}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.fgrid .kw{grid-column:1/-1}
+#app.f .stats{display:none}
+/* tablet */
+@media(min-width:700px){
+ main{max-width:960px;padding:24px 24px 80px}
+ .fgrid{grid-template-columns:2.2fr 1fr 1fr}.fgrid .kw{grid-column:auto}
+ #list{grid-template-columns:1fr 1fr}
+ .fl{flex-wrap:wrap;overflow:visible}
+ .top h1{font-size:22px}
+}
+/* ordenador */
+@media(min-width:1100px){
+ main{max-width:1600px;padding:32px 40px 60px}
+ #app{display:grid!important;grid-template-columns:300px 1fr;gap:36px;align-items:start}
+ #app.hide{display:none!important}
+ .side{position:sticky;top:28px;background:var(--card);border:1px solid var(--bd);border-radius:22px;padding:20px;box-shadow:var(--sh)}
+ .side .top{flex-wrap:wrap}.side .top .ic{width:100%;margin-top:6px}
+ .side .tabs{grid-template-columns:1fr;margin-bottom:16px}.side .tabs button{text-align:left;padding:0 16px;min-height:48px;font-size:15px}
+ #app.f .stats{display:grid}
+ .stat b{font-size:22px}
+ #tabBots{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start}
+ .fgrid{grid-template-columns:1fr 1fr}.fgrid .kw{grid-column:1/-1}
+ .form{position:sticky;top:28px;margin:0}
+ #list{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+ .grid{column-count:4;column-gap:16px}.pin{margin-bottom:16px}
+}
+@media(min-width:1500px){.grid{column-count:5}}
 </style></head><body><main>
 
 <section id="lock" class="lock hide"><div class="logo">🤖</div><h1>Wallapop Bots</h1><p class="sub">Alertas de Wallapop y Vinted</p>
@@ -66,22 +98,29 @@ main.wide{max-width:1100px}
   <label>Token de GitHub</label><input id="tok" type="password" autocomplete="off">
   <label>Elige un PIN (mín. 4)</label><input id="pin1" type="password" inputmode="numeric" autocomplete="new-password"></div>
  <div id="again" class="hide"><label>PIN</label><input id="pin2" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••"></div>
- <button class="w" id="go" onclick="enter()">Entrar</button><div id="lm" class="err"></div>
+ <button class="full" id="go" onclick="enter()">Entrar</button><div id="lm" class="err"></div>
 </div><a href="#" id="forget" class="hide" onclick="forget();return false">Olvidar este dispositivo</a></section>
 
 <section id="app" class="hide">
-<div class="top"><div class="logo">🤖</div><div><h1>Wallapop Bots</h1><small>Wallapop + Vinted</small></div><button class="g ic" onclick="lock()">🔒 Salir</button></div>
-<div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')">🤖 Mis bots</button><button id="tb2" onclick="setTab('feed')">✨ Novedades</button></div>
-<div id="tabBots"><div class="stats"><div class="stat"><b id="s1">0</b><span>Activos</span></div><div class="stat"><b id="s2">0</b><span>Pausados</span></div><div class="stat"><b id="s3">0</b><span>Total</span></div></div>
-<div class="card"><h2 id="ft">Nuevo bot</h2>
- <label>Qué buscas</label><input id="kw" placeholder="mario party" enterkeyhint="done">
- <div class="row"><div><label>Mín €</label><input id="mn" type="number" inputmode="numeric" value="0"></div><div><label>Máx €</label><input id="mx" type="number" inputmode="numeric" value="1000"></div></div>
- <label>Dónde buscar</label><input type="hidden" id="src" value="ambos">
- <div class="seg" id="seg"><button class="on" data-v="ambos" onclick="setSrc('ambos')">Ambas</button><button data-v="wallapop" onclick="setSrc('wallapop')">Wallapop</button><button data-v="vinted" onclick="setSrc('vinted')">Vinted</button></div>
- <div class="row" style="margin-top:16px"><button id="sv" onclick="add()">Crear bot</button><button id="cn" class="g hide" onclick="cancelEdit()">Cancelar</button><button class="g" style="flex:.45" onclick="load()" title="Recargar">↻</button></div></div>
-<div id="list"></div></div>
-<div id="tabFeed" class="hide"><div class="fl" id="fl"></div><div class="grid" id="grid"></div></div>
-<p style="color:var(--mut);font-size:12px;text-align:center">Máx 1000 = sin límite · Los cambios se aplican en segundos · Se bloquea solo tras 5 min</p>
+<aside class="side">
+ <div class="top"><div class="logo">🤖</div><div class="tt"><h1>Wallapop Bots</h1><small>Wallapop + Vinted</small></div><button class="g ic" onclick="lock()">🔒 Salir</button></div>
+ <div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')">🤖 Mis bots</button><button id="tb2" onclick="setTab('feed')">✨ Novedades</button></div>
+ <div class="stats"><div class="stat"><b id="s1">0</b><span>Activos</span></div><div class="stat"><b id="s2">0</b><span>Pausados</span></div><div class="stat"><b id="s3">0</b><span>Total</span></div></div>
+</aside>
+<div class="content">
+ <div id="tabBots">
+  <div class="card form"><h2 id="ft">Nuevo bot</h2>
+   <div class="fgrid"><div class="kw"><label>Qué buscas</label><input id="kw" placeholder="mario party" enterkeyhint="done"></div>
+    <div><label>Mín €</label><input id="mn" type="number" inputmode="numeric" value="0"></div><div><label>Máx €</label><input id="mx" type="number" inputmode="numeric" value="1000"></div></div>
+   <label>Dónde buscar</label><input type="hidden" id="src" value="ambos">
+   <div class="seg" id="seg"><button class="on" data-v="ambos" onclick="setSrc('ambos')">Ambas</button><button data-v="wallapop" onclick="setSrc('wallapop')">Wallapop</button><button data-v="vinted" onclick="setSrc('vinted')">Vinted</button></div>
+   <div class="row" style="margin-top:16px"><button id="sv" onclick="add()">Crear bot</button><button id="cn" class="g hide" onclick="cancelEdit()">Cancelar</button><button class="g" style="flex:.45" onclick="load()" title="Recargar">↻</button></div>
+   <p class="foot" style="text-align:left;margin:12px 0 0">Máx 1000 = sin límite. Los cambios se aplican en segundos.</p></div>
+  <div id="list"></div>
+ </div>
+ <div id="tabFeed" class="hide"><div class="fl" id="fl"></div><div class="grid" id="grid"></div></div>
+ <p class="foot">Se bloquea solo tras 5 min sin usar</p>
+</div>
 </section></main><div id="m"></div>
 <script>
 const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder();
@@ -132,7 +171,7 @@ async function push(t){const b={message:t,content:btoa(unescape(encodeURICompone
 function render(){const a=cfg.filter(b=>b.status!="paused").length;$("#s1").textContent=a;$("#s2").textContent=cfg.length-a;$("#s3").textContent=cfg.length;
  $("#list").innerHTML=cfg.length?cfg.map((b,i)=>{const s=b.source||"ambos",p=b.status=="paused";
  return`<div class="card"><div class="bhead"><b>${esc(b.keywords)}</b><span class="pill ${p?"off":"on"}">${p?"⏸ Pausado":"● Activo"}</span></div>
- <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip w">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip v">🟣 Vinted</span>':""}</div>
+ <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip cw">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip cv">🟣 Vinted</span>':""}</div>
  <div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${p?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`}).join("")
  :'<div class="card empty"><div class="big">🔍</div><b>Aún no tienes bots</b><br>Crea el primero arriba y te avisaré por Telegram.</div>'}
 const apiF=()=>`https://api.github.com/repos/${REPO}/contents/data/results.json`;
@@ -140,7 +179,7 @@ const safe=u=>/^https:\/\//.test(u||"")?u:"";
 function ago(t){const m=Math.max(0,Math.round((Date.now()/1000-t)/60));return m<1?"ahora":m<60?"hace "+m+" min":m<1440?"hace "+Math.round(m/60)+" h":"hace "+Math.round(m/1440)+" d"}
 function setTab(x){tab=x;clearInterval(fiv);if(!$("#tabBots"))return;
  $("#tabBots").classList.toggle("hide",x!="bots");$("#tabFeed").classList.toggle("hide",x!="feed");
- $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");document.querySelector("main").classList.toggle("wide",x=="feed");
+ $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");$("#app").classList.toggle("f",x=="feed");
  if(x=="feed"&&TOK){loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}}
 async function loadFeed(silent){
  try{const r=await fetch(apiF(),{headers:hd(),cache:"no-store"});
@@ -155,7 +194,7 @@ function renderFeed(){const kws=[...new Set(feed.map(x=>x.kw))];
  const L=feed.filter(x=>(!fKw||x.kw==fKw)&&(!fPl||x.p==fPl));
  $("#grid").innerHTML=L.length?L.map(x=>{const w=x.p!="Vinted",im=safe(x.im),nw=Date.now()/1000-x.t<600;
   return`<a class="pin" href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
-  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"w":"v"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}</div>
+  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}</div>
   <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}</small></div></a>`}).join(""):'<div class="card empty" style="column-span:all"><div class="big">✨</div><b>Aún no hay novedades</b><br>Cuando el bot encuentre anuncios aparecerán aquí.</div>'}
 function setSrc(v){$("#src").value=v;document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x.dataset.v==v))}
 function add(){const k=$("#kw").value.trim();if(!k){$("#kw").focus();return}
