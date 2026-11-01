@@ -139,7 +139,7 @@ const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder()
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LANGS=[["it","🇮🇹 Italiano"],["fr","🇫🇷 Francés"],["en","🇬🇧 Inglés"],["de","🇩🇪 Alemán"],["pt","🇵🇹 Portugués"],["jp","🇯🇵 Japonés"],["es","🇪🇸 Español"]];
-let LM="off",LS=[];
+let LM="off",LS=[],cfgOk=false,fArc=false;
 let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt,feed=[],fKw="",fPl="",tab="bots",fiv;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
 async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
@@ -150,7 +150,7 @@ async function unseal(o,p){return dec.decode(await crypto.subtle.decrypt({name:"
 const hd=()=>({Authorization:"Bearer "+TOK,Accept:"application/vnd.github+json"});
 const api=()=>`https://api.github.com/repos/${REPO}/contents/data/config.json`;
 function msg(t,e){const m=$("#m");clearTimeout(mt);if(!t){m.classList.remove("show");return}m.textContent=t;m.className="show"+(e?" e":"");mt=setTimeout(()=>m.classList.remove("show"),e?5000:2500)}
-function showLock(){setTab("bots");clearTimeout(idle);TOK="";cfg=[];$("#app").classList.add("hide");$("#lock").classList.remove("hide");
+function showLock(){setTab("bots");clearTimeout(idle);TOK="";cfg=[];cfgOk=false;$("#app").classList.add("hide");$("#lock").classList.remove("hide");
  const s=store();$("#first").classList.toggle("hide",!!s);$("#again").classList.toggle("hide",!s);$("#forget").classList.toggle("hide",!s);$("#lm").textContent="";
  $("#pin1").value=$("#pin2").value="";if(!s){const g=location.hostname.endsWith(".github.io")?location.hostname.split(".")[0]+"/"+(location.pathname.split("/")[1]||""):"";$("#repo").value=g;$("#tok").value=""}}
 function lock(){showLock()}
@@ -185,7 +185,7 @@ async function load(){cancelEdit();msg("Cargando…");
  const r=await fetch(api(),{headers:hd(),cache:"no-store"});
  if(r.status==404){cfg=[];sha=null}else if(!r.ok){msg("Error "+r.status+" al leer el repo",1);return}
  else{const j=await r.json();sha=j.sha;cfg=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))}
- render();msg("")}
+ cfgOk=true;render();msg("")}
 async function push(t){const b={message:t,content:btoa(unescape(encodeURIComponent(JSON.stringify(cfg,null,2))))};if(sha)b.sha=sha;
  const r=await fetch(api(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
  if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await load();return}
@@ -208,16 +208,18 @@ async function loadFeed(silent){
   if(r.status==404)feed=[];else if(!r.ok){if(!silent)msg("Error "+r.status+" al leer novedades",1);return}
   else{const j=await r.json();feed=(JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))||{}).items||[]}
   renderFeed()}catch(e){if(!silent)msg("Sin conexión",1)}}
-function renderFeed(){const kws=[...new Set(feed.map(x=>x.kw))];
+function renderFeed(){const act=new Set(cfg.map(b=>b.keywords)),isA=x=>cfgOk&&!act.has(x.kw),arch=feed.filter(isA),live=feed.filter(x=>!isA(x));
+ if(!arch.length)fArc=false;
+ const base=fArc?arch:live,kws=[...new Set(base.map(x=>x.kw))];
  if(fKw&&!kws.includes(fKw))fKw="";
  const chip=(l,on,fn)=>`<button class="${on?"on":""}" onclick="${fn}">${l}</button>`;
- $("#fl").innerHTML=chip("Todo",!fKw&&!fPl,"fKw='';fPl='';renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
-  +kws.map((k,i)=>chip(esc(k),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("");window.kws_=kws;
- const L=feed.filter(x=>(!fKw||x.kw==fKw)&&(!fPl||x.p==fPl));
+ $("#fl").innerHTML=chip("Todo",!fKw&&!fPl&&!fArc,"fKw='';fPl='';fArc=false;renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
+  +kws.map((k,i)=>chip(esc(k),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("")+(arch.length?chip("🗄 Archivados ("+arch.length+")",fArc,"fArc=!fArc;fKw='';renderFeed()"):"");window.kws_=kws;
+ const L=base.filter(x=>(!fKw||x.kw==fKw)&&(!fPl||x.p==fPl));
  $("#grid").innerHTML=L.length?L.map(x=>{const w=x.p!="Vinted",im=safe(x.im),nw=Date.now()/1000-x.t<600;
   return`<a class="pin" href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
   <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}</div>
-  <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}</small></div></a>`}).join(""):'<div class="card empty" style="column-span:all"><div class="big">✨</div><b>Aún no hay novedades</b><br>Cuando el bot encuentre anuncios aparecerán aquí.</div>'}
+  <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}</small></div></a>`}).join(""):'<div class="card empty" style="column-span:all"><div class="big">✨</div><b>'+(fArc?"Nada archivado":"Aún no hay novedades")+'</b><br>'+(fArc?"Aquí van los anuncios de los bots que borres.":"Cuando el bot encuentre anuncios aparecerán aquí.")+'</div>'}
 function drawL(){const on=LM!="off";$("#lbox").classList.toggle("hide",!on);$("#lhint").classList.toggle("hide",!on);
  $("#lbox").innerHTML=LANGS.map(([c,n])=>`<button type="button" class="${LS.includes(c)?"on":""}" onclick="togL('${c}')">${n}</button>`).join("");
  $("#lhint").textContent=LM=="excluir"?"Se ocultan los anuncios que mencionen estos idiomas en el título o la descripción.":"Se ocultan los que mencionen otros idiomas. Los que no mencionan ninguno se siguen mostrando."}
@@ -234,7 +236,7 @@ function edit(i){const b=cfg[i];ed=i;$("#kw").value=b.keywords;$("#mn").value=b.
  $("#ft").textContent="Editando: "+b.keywords;$("#sv").textContent="Guardar cambios";$("#cn").classList.remove("hide");scrollTo({top:0,behavior:"smooth"});$("#kw").focus()}
 function cancelEdit(){ed=null;$("#kw").value="";$("#mn").value=0;$("#mx").value=1000;setSrc("ambos");LS=[];setLM("off");$("#ft").textContent="Nuevo bot";$("#sv").textContent="Crear bot";$("#cn").classList.add("hide")}
 function tog(i){if(ed!==null)cancelEdit();cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
-async function del(i){if(ed!==null)cancelEdit();const b=cfg[i];if(!b)return;if(await ask("¿Borrar este bot?","Se eliminará «"+b.keywords+"» y dejarás de recibir sus avisos.","Borrar")){const j=cfg.indexOf(b);if(j<0)return;cfg.splice(j,1);push("borrar bot")}}
+async function del(i){if(ed!==null)cancelEdit();const b=cfg[i];if(!b)return;if(await ask("¿Borrar este bot?","Se eliminará «"+b.keywords+"» y dejarás de recibir sus avisos. Sus anuncios pasarán a Novedades › Archivados.","Borrar")){const j=cfg.indexOf(b);if(j<0)return;cfg.splice(j,1);push("borrar bot")}}
 document.addEventListener("keydown",e=>{if(e.key=="Enter"){if(!$("#lock").classList.contains("hide"))enter();else if(document.activeElement&&["kw","mn","mx"].includes(document.activeElement.id))add()}});
 showLock();
 </script></body></html>
