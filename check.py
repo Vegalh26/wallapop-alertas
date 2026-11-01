@@ -37,27 +37,35 @@ FUENTES = ("wallapop", "vinted", "ambos")
 VINTED_TLD = os.environ.get("VINTED_TLD", "es")
 
 # ---------- Filtro de idioma ----------
-# Ni Wallapop ni Vinted dan el idioma del juego como dato: se deduce de palabras del título
-# (y de los primeros 200 caracteres de la descripción, si el anuncio la trae).
+# Ni Wallapop ni Vinted dan el idioma como dato: se deduce de palabras del título y de los primeros
+# 200 caracteres de la descripción. Solo se usan palabras que NO existen en español (tras quitar
+# acentos) para no confundir: "version", "original", "the" (muchos juegos conservan su título inglés)...
 IDIOMAS = {
     "it": ("Italiano", ["italiano", "italiana", "italiani", "italian", "italia", "italy", "ita", "ital",
-                        "gioco", "giochi", "usato", "nuovo", "edizione", "versione", "della", "scatola",
-                        "originale", "spedizione"]),
+                        "gioco", "giochi", "usato", "nuovo", "edizione", "versione", "della", "dello", "delle",
+                        "degli", "dei", "gli", "il", "nel", "nella", "scatola", "originale", "spedizione",
+                        "professore", "e il", "e la", "e lo", "e i", "e gli", "e le"]),
     "fr": ("Francés", ["frances", "francesa", "francais", "francaise", "french", "france", "francia", "fra",
-                       "fr", "jeu", "jeux", "occasion", "boite", "avec", "livraison"]),
+                       "fr", "jeu", "jeux", "occasion", "boite", "avec", "livraison", "professeur",
+                       "et", "des", "du", "aux", "les", "pour", "dans", "une", "etat"]),
     "en": ("Inglés", ["ingles", "inglesa", "english", "eng", "uk", "ntsc-u"]),
     "de": ("Alemán", ["aleman", "alemana", "alemania", "german", "germany", "deutsch", "deutsche", "ger",
-                      "deu", "spiel", "gebraucht", "und", "versand"]),
-    "pt": ("Portugués", ["portugues", "portuguesa", "portuguese", "portugal", "pt", "jogo"]),
+                      "deu", "spiel", "gebraucht", "und", "versand", "der", "die", "dem", "mit", "von",
+                      "eine", "fur"]),
+    "pt": ("Portugués", ["portugues", "portuguesa", "portuguese", "portugal", "pt", "jogo", "com", "uma",
+                         "nao", "e o", "e a", "e os", "e as"]),
     "jp": ("Japonés", ["japones", "japonesa", "japanese", "japan", "japon", "jp", "jpn", "ntsc-j"]),
-    "es": ("Español", ["espanol", "espanola", "castellano", "spanish", "spain", "esp", "spa"]),
+    "es": ("Español", ["espanol", "espanola", "castellano", "spanish", "spain", "esp", "spa", "profesor"]),
 }
-_IDI_RE = {c: re.compile(r"\b(?:" + "|".join(re.escape(w) for w in ws) + r")\b")
+_IDI_RE = {c: re.compile(r"\b(?:" + "|".join(re.escape(w) for w in sorted(ws, key=len, reverse=True)) + r")\b")
            for c, (_n, ws) in IDIOMAS.items()}
+# Elisiones l'..., d'..., dell'... : son francés o italiano (no español) pero no se sabe cuál -> "?"
+_ELISION = re.compile(r"(?<![a-z])(?:l|d|dell|all|nell|sull|qu|j)'[a-z]")
+AMBIGUO = {"fr", "it"}
 
 
 def _sin_acentos(t):
-    t = unicodedata.normalize("NFKD", str(t).lower())
+    t = unicodedata.normalize("NFKD", str(t).lower().replace("\u2019", "'"))
     return "".join(c for c in t if not unicodedata.combining(c))
 
 
@@ -68,22 +76,28 @@ _PAISES = re.compile(r"\b(?:italia|italy|france|francia|germany|alemania|portuga
 def idiomas_en(titulo, desc=""):
     t = _sin_acentos(titulo)
     d = _PAISES.sub(" ", _sin_acentos(desc))
-    return {c for c, rx in _IDI_RE.items() if rx.search(t) or rx.search(d)}
+    out = {c for c, rx in _IDI_RE.items() if rx.search(t) or rx.search(d)}
+    if _ELISION.search(t) or _ELISION.search(d):
+        out.add("?")
+    return out
 
 
 def pasa_idioma(b, r):
     """True si el anuncio 'r' cumple el filtro de idioma del bot 'b'.
     excluir: se descarta si menciona alguno de los idiomas elegidos.
-    solo:    se descarta si menciona otros idiomas y ninguno de los elegidos
-             (los anuncios que no mencionan idioma se mantienen)."""
+    solo:    se descarta si parece estar en otro idioma y no en alguno de los elegidos
+             (los anuncios sin ninguna pista de idioma se mantienen).
+    "?" = parece francés o italiano sin poder precisar cuál."""
     modo = b.get("lang_mode", "off")
     langs = set(b.get("langs") or [])
     if modo not in ("excluir", "solo") or not langs:
         return True
-    hay = idiomas_en(r.get("nombre", ""), r.get("desc", ""))
+    hay = set(r["lg"]) if "lg" in r else idiomas_en(r.get("nombre", ""), r.get("desc", ""))
     if modo == "excluir":
-        return not (hay & langs)
-    return not hay or bool(hay & langs)
+        return not (hay & langs) and not ("?" in hay and AMBIGUO <= langs)
+    if not hay:
+        return True
+    return bool(hay & langs) or ("?" in hay and bool(langs & AMBIGUO))
 
 
 def filtro_txt(b):
@@ -92,6 +106,24 @@ def filtro_txt(b):
         return ""
     nombres = ", ".join(IDIOMAS[c][0] for c in langs if c in IDIOMAS)
     return f"🌐 {'Solo' if modo == 'solo' else 'Sin'}: {nombres}\n"
+
+
+def idioma_txt(r):
+    lg = r.get("lg") or []
+    nombres = [IDIOMAS[c][0] for c in lg if c in IDIOMAS]
+    if nombres:
+        return ", ".join(nombres)
+    return "posible francés/italiano" if "?" in lg else "no detectado"
+
+
+def firma(b):
+    """Resumen de la configuración de búsqueda del bot (precio, plataformas, idioma).
+    Se guarda en cada novedad para poder separar las de una configuración anterior."""
+    modo = b.get("lang_mode", "off")
+    langs = ",".join(sorted(b.get("langs") or [])) if modo in ("excluir", "solo") else ""
+    if not langs:
+        modo = "off"
+    return f"{b['min_price']}|{b['max_price']}|{b.get('source', 'ambos')}|{modo}:{langs}"
 
 
 ORDER_BY = "newest"
@@ -536,9 +568,10 @@ def buscar_vinted(keywords, min_price, max_price):
     return out
 
 
-def bloque(i, r):
+def bloque(i, r, con_idioma=False):
     ic = "🟣 Vinted" if r.get("plat") == "Vinted" else "🟢 Wallapop"
-    return f"{i}. {ic} · 💰 {r['precio']:.2f}€\n📝 {esc(r['nombre'])}\n🔗 {r['enlace']}\n\n"
+    idi = f"\n🌐 Idioma: {idioma_txt(r)}" if con_idioma else ""
+    return f"{i}. {ic} · 💰 {r['precio']:.2f}€\n📝 {esc(r['nombre'])}{idi}\n🔗 {r['enlace']}\n\n"
 
 
 def comprobar_bots(bots, meta):
@@ -564,7 +597,10 @@ def comprobar_bots(bots, meta):
                 n_err += 1
         if fallos == len(pedidos):
             continue  # todo falló: no tocamos el estado
+        for r in resultados:  # idiomas detectados (se guardan para mostrarlos en Telegram y en el panel)
+            r["lg"] = sorted(idiomas_en(r["nombre"], r.get("desc", "")))
         resultados = [r for r in resultados if pasa_idioma(b, r)]  # filtro de idioma
+        fi = filtro_txt(b)
         ok += 1
 
         previos = b.get("seen", [])
@@ -577,18 +613,18 @@ def comprobar_bots(bots, meta):
         if not b.get("first_done"):
             b["first_done"] = True
             if resultados:
-                registrar(b["keywords"], resultados)
+                registrar(b, resultados)
                 send_blocks(
-                    f"🔵 <b>Primera comprobación</b> — <i>{esc(b['keywords'])}</i>\n\n",
-                    [bloque(i, r) for i, r in enumerate(resultados, 1)],
+                    f"🔵 <b>Primera comprobación</b> — <i>{esc(b['keywords'])}</i>\n{fi}\n",
+                    [bloque(i, r, bool(fi)) for i, r in enumerate(resultados, 1)],
                 )
             else:
                 send(f"🔴 Sin resultados para <b>{esc(b['keywords'])}</b>")
         elif nuevos:
-            registrar(b["keywords"], nuevos)
+            registrar(b, nuevos)
             send_blocks(
-                f"🆕 <b>NUEVOS</b> — <i>{esc(b['keywords'])}</i>\n📅 {ts}\n\n",
-                [bloque(i, r) for i, r in enumerate(nuevos, 1)],
+                f"🆕 <b>NUEVOS</b> — <i>{esc(b['keywords'])}</i>\n📅 {ts}\n{fi}\n",
+                [bloque(i, r, bool(fi)) for i, r in enumerate(nuevos, 1)],
             )
         print(f"[{b['keywords']}] resultados={len(resultados)} nuevos={len(nuevos)}")
 
@@ -678,31 +714,61 @@ def escribir_config(cfg, sha):
     escribir_json_repo("data/config.json", cfg, sha)
 
 
-# ---------- Muro de novedades (lo lee el panel web) ----------
-RES = {"items": [], "sha": None, "dirty": False}
-RES_MAX = 150
+# ---------- Muro de novedades (lo lee y lo limpia el panel web) ----------
+# El panel también escribe data/results.json (botones "Vaciar"), así que aquí NO se guarda una copia
+# propia: las novedades nuevas se acumulan en RES["new"] y al guardar se fusionan con lo que haya en el repo.
+RES = {"new": [], "sha": None}
+RES_MAX = 150   # novedades de bots que existen
+ARCH_MAX = 100  # novedades de bots borrados (se muestran en "Archivados")
 
 
-def registrar(kw, items):
+def registrar(b, items):
     t = int(time.time())
-    ya = {x["id"] for x in RES["items"]}
+    ya = {x["id"] for x in RES["new"]}
     lote = []
     for r in items:
         i = key_de(r)
         if i in ya:
             continue
         ya.add(i)
-        lote.append({"id": i, "t": t, "kw": kw, "p": r.get("plat", "Wallapop"), "n": r["nombre"],
-                     "pr": r["precio"], "u": r["enlace"], "im": r.get("img", "")})
+        lote.append({"id": i, "t": t, "kw": b["keywords"], "p": r.get("plat", "Wallapop"), "n": r["nombre"],
+                     "pr": r["precio"], "u": r["enlace"], "im": r.get("img", ""),
+                     "f": firma(b), "lg": ",".join(r.get("lg", []))})
     if lote:
-        RES["items"] = (lote + RES["items"])[:RES_MAX]
-        RES["dirty"] = True
+        RES["new"] = lote + RES["new"]
 
 
-def guardar_recientes():
-    if RES["dirty"]:
-        RES["sha"] = escribir_json_repo("data/results.json", {"items": RES["items"]}, RES["sha"])
-        RES["dirty"] = False
+def recortar(items, kws):
+    """Limita el muro: hasta RES_MAX de bots vivos y ARCH_MAX de bots borrados (archivados)."""
+    out, na, nr = [], 0, 0
+    for x in items:
+        if str(x.get("kw", "")).lower() in kws:
+            if na < RES_MAX:
+                out.append(x)
+                na += 1
+        elif nr < ARCH_MAX:
+            out.append(x)
+            nr += 1
+    return out
+
+
+def guardar_recientes(bots=None):
+    if not RES["new"]:
+        return
+    kws = {b["keywords"].lower() for b in bots} if bots is not None else None
+    for _ in range(3):
+        d, sha = leer_json_repo("data/results.json", {"items": []})
+        remoto = (d or {}).get("items", [])
+        ids = {x["id"] for x in remoto}
+        merged = [x for x in RES["new"] if x["id"] not in ids] + remoto
+        merged = recortar(merged, kws) if kws is not None else merged[:RES_MAX + ARCH_MAX]
+        try:
+            RES["sha"] = escribir_json_repo("data/results.json", {"items": merged}, sha)
+        except requests.HTTPError as e:
+            print("Aviso al guardar novedades (reintento):", e)
+            continue
+        RES["new"] = []
+        return
 
 
 def cfg_of(bots):
@@ -762,7 +828,7 @@ def iteracion(bots, meta):
         escribir_config(cfg_of(bots), sha)
     guardar(bots, meta)
     try:
-        guardar_recientes()
+        guardar_recientes(bots)
     except Exception as e:
         print("Aviso al guardar novedades:", e)
     return ok, err
@@ -773,12 +839,6 @@ def main():
         raise SystemExit("Faltan TELEGRAM_TOKEN / TELEGRAM_CHAT_ID")
     meta = load_json(STATE_FILE, {})
     bots = []
-    try:
-        d, RES["sha"] = leer_json_repo("data/results.json", {"items": []})
-        RES["items"] = (d or {}).get("items", [])
-    except Exception as e:
-        print("Aviso al leer novedades:", e)
-
     if LOOP_SECONDS <= 0:
         iteracion(bots, meta)
         return
