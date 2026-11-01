@@ -1,1 +1,2 @@
 requests>=2.31
+lingua-language-detector>=2.0
