@@ -33,7 +33,11 @@
     "keywords": "yona",
     "min_price": 0,
     "max_price": 1000,
-    "source": "ambos"
+    "source": "ambos",
+    "lang_mode": "solo",
+    "langs": [
+      "es"
+    ]
   },
   {
     "id": "omt3imuh",
