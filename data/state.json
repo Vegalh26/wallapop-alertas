@@ -44,7 +44,9 @@
         "e61e6931e0e490b12cf68c69b21b4b4a",
         "c9b451a517dc4b3215bdae29c0b31de6",
         "c22c1f699d662a65a9617cbfc92477a0",
-        "1fb510ba3e1cc85e0a5e0577689fffde"
+        "1fb510ba3e1cc85e0a5e0577689fffde",
+        "47a40f14fcd20dcb3acddc663c2a2f8a",
+        "775407e445da45958e3c5a1371d990a4"
       ],
       "first_done": true
     },
@@ -77,7 +79,10 @@
         "97f861d74d650d2c56e80bd27d6562ac",
         "7004c4648c4090710c39611a79ed939c",
         "7bdfc5f56de256c840aa3d6ea324b55a",
-        "ad74099d9a8c3b357dfcecefa7a55aa3"
+        "ad74099d9a8c3b357dfcecefa7a55aa3",
+        "36aaff781fbe4a1c85f058c078b1a3ed",
+        "cb038e517d5744d9438909ab60fb02cd",
+        "81ae8e17e09ce52b30f0a1907e4d1216"
       ],
       "first_done": true
     },
@@ -100,11 +105,13 @@
         "60aa1330384d606849537872836d3541",
         "36e37526a0893585935870104a9f7028",
         "c81b1fe2eb7bb6356b447c73fb61942a",
-        "92c148737c3f4f50ea6ce23def7e4bea"
+        "92c148737c3f4f50ea6ce23def7e4bea",
+        "bbb384904a37c7c792ebbc8d2fd14aa7",
+        "6df3c60e257e3d55301e4b5bde1ad5b6"
       ],
       "first_done": true
     }
   },
   "heartbeat": "2026-11-03",
-  "bloqueado_vinted": true
+  "bloqueado_vinted": false
 }
