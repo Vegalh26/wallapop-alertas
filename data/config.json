@@ -7,7 +7,8 @@
     "max_price": 1000,
     "source": "ambos",
     "lang_mode": "off",
-    "langs": []
+    "langs": [],
+    "exclude": []
   },
   {
     "id": "z6y91wkg",
