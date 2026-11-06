@@ -14,6 +14,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 import unicodedata
 import uuid
@@ -32,7 +33,7 @@ CFG_FILE = DATA_DIR / "config.json"    # bots definidos (lo editan el panel web 
 STATE_FILE = DATA_DIR / "state.json"   # anuncios ya vistos, offset de Telegram...
 REPO = os.environ.get("GITHUB_REPOSITORY", "")
 GH_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status", "source", "lang_mode", "langs")
+CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status", "source", "lang_mode", "langs", "exclude")
 FUENTES = ("wallapop", "vinted", "ambos")
 VINTED_TLD = os.environ.get("VINTED_TLD", "es")
 
@@ -118,6 +119,7 @@ def idioma_detectado(titulo, desc=""):
 
 
 def idiomas_en(titulo, desc=""):
+    desc = str(desc or "")[:200]
     t = _sin_acentos(titulo)
     d = _PAISES.sub(" ", _sin_acentos(desc))
     out = {c for c, rx in _IDI_RE.items() if rx.search(t) or rx.search(d)}
@@ -148,6 +150,59 @@ def pasa_idioma(b, r):
     return bool(hay & langs) or ("?" in hay and bool(langs & AMBIGUO))
 
 
+# ---------- Palabras excluidas ----------
+# Cada bot puede llevar una lista de palabras/frases: si el título o la descripción contiene alguna,
+# el anuncio se ignora. Se comparan sin acentos ni mayúsculas. Un "*" al final cubre variantes
+# ("caja*" -> caja, cajas, cajita...).
+MAX_EXCL = 30
+_EXCL_CACHE = {}
+
+
+def limpiar_excl(v):
+    """Acepta una lista o un texto separado por comas/saltos de línea y devuelve la lista limpia."""
+    if isinstance(v, str):
+        v = re.split(r"[,;\n]+", v)
+    out, vistos = [], set()
+    for t in v or []:
+        t = str(t).replace("|", " ").strip()[:40]
+        k = t.lower()
+        if t and k not in vistos:
+            vistos.add(k)
+            out.append(t)
+    return out[:MAX_EXCL]
+
+
+def _rx_excl(t):
+    t = _sin_acentos(t).strip()
+    prefijo = t.endswith("*")
+    t = t.rstrip("*").strip()
+    if not t:
+        return None
+    cuerpo = r"\s+".join(re.escape(p) for p in t.split())
+    return re.compile(r"(?<!\w)" + cuerpo + (r"\w*" if prefijo else r"(?!\w)"))
+
+
+def pasa_exclusion(b, r):
+    """False si el título o la descripción del anuncio 'r' contiene alguna palabra excluida del bot 'b'."""
+    terms = b.get("exclude") or []
+    if not terms:
+        return True
+    clave = tuple(terms)
+    rxs = _EXCL_CACHE.get(clave)
+    if rxs is None:
+        rxs = _EXCL_CACHE[clave] = [rx for rx in map(_rx_excl, terms) if rx]
+    texto = _sin_acentos(f"{r.get('nombre', '')} {r.get('desc', '')}")
+    return not any(rx.search(texto) for rx in rxs)
+
+
+def excl_txt(b):
+    terms = b.get("exclude") or []
+    if not terms:
+        return ""
+    extra = f" (+{len(terms) - 8})" if len(terms) > 8 else ""
+    return f"🚫 Sin: {esc(', '.join(terms[:8]))}{extra}\n"
+
+
 def filtro_txt(b):
     modo, langs = b.get("lang_mode", "off"), b.get("langs") or []
     if modo not in ("excluir", "solo") or not langs:
@@ -165,13 +220,15 @@ def idioma_txt(r):
 
 
 def firma(b):
-    """Resumen de la configuración de búsqueda del bot (precio, plataformas, idioma).
+    """Resumen de la configuración de búsqueda del bot (precio, plataformas, idioma, palabras excluidas).
     Se guarda en cada novedad para poder separar las de una configuración anterior."""
     modo = b.get("lang_mode", "off")
     langs = ",".join(sorted(b.get("langs") or [])) if modo in ("excluir", "solo") else ""
     if not langs:
         modo = "off"
-    return f"{b['min_price']}|{b['max_price']}|{b.get('source', 'ambos')}|{modo}:{langs}"
+    ex = ",".join(sorted(t.strip().lower() for t in (b.get("exclude") or [])))
+    base = f"{b['min_price']}|{b['max_price']}|{b.get('source', 'ambos')}|{modo}:{langs}"
+    return base + ("|" + ex if ex else "")  # sin palabras excluidas la firma es la de siempre
 
 
 ORDER_BY = "newest"
@@ -272,7 +329,7 @@ def bot_text(b):
         f"🤖 <b>{esc(b['keywords'])}</b>\n"
         f"💰 {b['min_price']}€ – {fmt_max(b['max_price'])}\n"
         f"🔎 {ETIQ.get(b.get('source', 'ambos'))}\n"
-        f"{filtro_txt(b)}Estado: {emoji} {b['status']}"
+        f"{filtro_txt(b)}{excl_txt(b)}Estado: {emoji} {b['status']}"
     )
 
 
@@ -384,6 +441,7 @@ def on_message(m, bots):
             "source": "ambos",
             "lang_mode": "off",
             "langs": [],
+            "exclude": [],
             "first_done": False,
             "seen": [],
         })
@@ -547,7 +605,8 @@ def buscar(keywords, min_price, max_price):
             "enlace": f"https://es.wallapop.com/item/{slug}",
             "plat": "Wallapop",
             "img": _primera_url(content.get("images")),
-            "desc": str(content.get("description") or "")[:200],
+            "desc": str(content.get("description") or "")[:600],
+            "iid": str(content.get("id") or ""),
         })
     return resultados
 
@@ -612,7 +671,7 @@ def buscar_vinted(keywords, min_price, max_price):
         if enlace.startswith("/"):  # Vinted a veces devuelve solo la ruta
             enlace = base + enlace
         out.append({"nombre": titulo, "precio": precio, "plat": "Vinted", "enlace": enlace,
-                    "img": _primera_url(it.get("photo")), "desc": str(it.get("description") or "")[:200]})
+                    "img": _primera_url(it.get("photo")), "desc": str(it.get("description") or "")[:600]})
     return out
 
 
@@ -648,7 +707,9 @@ def comprobar_bots(bots, meta):
         for r in resultados:  # idiomas detectados (se guardan para mostrarlos en Telegram y en el panel)
             r["lg"] = sorted(idiomas_en(r["nombre"], r.get("desc", "")))
         resultados = [r for r in resultados if pasa_idioma(b, r)]  # filtro de idioma
+        resultados = [r for r in resultados if pasa_exclusion(b, r)]  # palabras excluidas
         fi = filtro_txt(b)
+        cab = fi + excl_txt(b)
         ok += 1
 
         previos = b.get("seen", [])
@@ -663,7 +724,7 @@ def comprobar_bots(bots, meta):
             if resultados:
                 registrar(b, resultados)
                 send_blocks(
-                    f"🔵 <b>Primera comprobación</b> — <i>{esc(b['keywords'])}</i>\n{fi}\n",
+                    f"🔵 <b>Primera comprobación</b> — <i>{esc(b['keywords'])}</i>\n{cab}\n",
                     [bloque(i, r, bool(fi)) for i, r in enumerate(resultados, 1)],
                 )
             else:
@@ -671,7 +732,7 @@ def comprobar_bots(bots, meta):
         elif nuevos:
             registrar(b, nuevos)
             send_blocks(
-                f"🆕 <b>NUEVOS</b> — <i>{esc(b['keywords'])}</i>\n📅 {ts}\n{fi}\n",
+                f"🆕 <b>NUEVOS</b> — <i>{esc(b['keywords'])}</i>\n📅 {ts}\n{cab}\n",
                 [bloque(i, r, bool(fi)) for i, r in enumerate(nuevos, 1)],
             )
         print(f"[{b['keywords']}] resultados={len(resultados)} nuevos={len(nuevos)}")
@@ -712,6 +773,7 @@ def norm(cfg):
             "source": c.get("source") if c.get("source") in FUENTES else "ambos",
             "lang_mode": modo if langs else "off",
             "langs": langs,
+            "exclude": limpiar_excl(c.get("exclude")),
         })
     return out
 
@@ -765,7 +827,7 @@ def escribir_config(cfg, sha):
 # ---------- Muro de novedades (lo lee y lo limpia el panel web) ----------
 # El panel también escribe data/results.json (botones "Vaciar"), así que aquí NO se guarda una copia
 # propia: las novedades nuevas se acumulan en RES["new"] y al guardar se fusionan con lo que haya en el repo.
-RES = {"new": [], "sha": None}
+RES = {"new": [], "upd": {}, "sha": None}  # upd: cambios de estado (vendido...) pendientes de subir
 RES_MAX = 150   # novedades de bots que existen
 ARCH_MAX = 100  # novedades de bots borrados (se muestran en "Archivados")
 
@@ -780,9 +842,12 @@ def registrar(b, items):
         if (i, kwl) in ya:
             continue
         ya.add((i, kwl))
-        lote.append({"id": i, "t": t, "kw": b["keywords"], "p": r.get("plat", "Wallapop"), "n": r["nombre"],
-                     "pr": r["precio"], "u": r["enlace"], "im": r.get("img", ""),
-                     "f": firma(b), "lg": ",".join(r.get("lg", []))})
+        it = {"id": i, "t": t, "kw": b["keywords"], "p": r.get("plat", "Wallapop"), "n": r["nombre"],
+              "pr": r["precio"], "u": r["enlace"], "im": r.get("img", ""),
+              "f": firma(b), "lg": ",".join(r.get("lg", []))}
+        if r.get("iid"):
+            it["iid"] = r["iid"]  # id interno de Wallapop: sirve para consultar si ya se vendió
+        lote.append(it)
     if lote:
         RES["new"] = lote + RES["new"]
 
@@ -802,13 +867,20 @@ def recortar(items, kws):
 
 
 def guardar_recientes(bots=None):
-    if not RES["new"]:
+    if not RES["new"] and not RES["upd"]:
         return
     kws = {b["keywords"].lower() for b in bots} if bots is not None else None
     for _ in range(3):
         d, sha = leer_json_repo("data/results.json", {"items": []})
         remoto = (d or {}).get("items", [])
         ids = {(x["id"], str(x.get("kw", "")).lower()) for x in remoto}
+        for x in remoto:  # estados nuevos (vendido, reservado...) sobre lo que haya en el repo
+            k = (x["id"], str(x.get("kw", "")).lower())
+            if k in RES["upd"]:
+                if RES["upd"][k]:
+                    x["st"] = RES["upd"][k]
+                else:
+                    x.pop("st", None)
         merged = [x for x in RES["new"] if (x["id"], str(x.get("kw", "")).lower()) not in ids] + remoto
         merged = recortar(merged, kws) if kws is not None else merged[:RES_MAX + ARCH_MAX]
         try:
@@ -817,7 +889,143 @@ def guardar_recientes(bots=None):
             print("Aviso al guardar novedades (reintento):", e)
             continue
         RES["new"] = []
+        RES["upd"] = {}
         return
+
+
+# ---------- ¿Se ha vendido ya? ----------
+# El bot consulta cada cierto tiempo la ficha de los anuncios de Novedades y apunta si siguen a la
+# venta ("sold" vendido, "gone" ya no disponible, "reserved" reservado). Solo cambia el estado cuando
+# la respuesta lo dice con claridad; si no la entiende, no toca nada. Se puede apagar con CHECK_VENDIDOS=0.
+VEND_ON = os.environ.get("CHECK_VENDIDOS", "1") != "0"
+VEND_CADA = int(os.environ.get("VENDIDOS_CADA", "900") or 900)           # s mínimos entre dos consultas del mismo anuncio
+VEND_POR_CICLO = int(os.environ.get("VENDIDOS_POR_CICLO", "4") or 4)     # anuncios que se consultan en cada vuelta
+VEND_DIAS = 45                                                           # pasado este tiempo se deja de consultar
+_vend = {"items": [], "t": 0.0, "vistos": {}}  # copia del muro, y cuándo se consultó cada URL por última vez
+
+
+def _valores(obj, nombres):
+    """Valores de todas las claves con alguno de esos nombres, a cualquier profundidad."""
+    out = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if str(k).lower() in nombres:
+                out.append(v)
+            if isinstance(v, (dict, list)):
+                out += _valores(v, nombres)
+    elif isinstance(obj, list):
+        for v in obj:
+            out += _valores(v, nombres)
+    return out
+
+
+def _bool(v):
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, dict) and isinstance(v.get("flag"), bool):  # Wallapop a veces usa {"flag": true}
+        return v["flag"]
+    return None
+
+
+def _flag(obj, *nombres):
+    """True/False si encuentra alguna de esas banderas; None si no aparece ninguna."""
+    vs = [b for b in (_bool(v) for v in _valores(obj, set(nombres))) if b is not None]
+    return None if not vs else any(vs)
+
+
+def estado_de_json(j):
+    """'sold' | 'gone' | 'reserved' | 'active' | None (None = no se entiende la respuesta)."""
+    if _flag(j, "sold", "is_sold"):
+        return "sold"
+    if _flag(j, "is_closed"):
+        acc = [str(v).lower() for v in _valores(j, {"item_closing_action"}) if isinstance(v, str)]
+        return "sold" if "sold" in acc else "gone"
+    if _flag(j, "expired", "banned", "is_hidden", "hidden"):
+        return "gone"
+    if _flag(j, "reserved", "is_reserved"):
+        return "reserved"
+    if _flag(j, "sold", "is_sold", "is_closed", "reserved", "is_reserved") is not None:
+        return "active"
+    return None
+
+
+def consultar_estado(x):
+    """(estado, detalle) de un anuncio del muro. El detalle sirve para depurar con --probar."""
+    if x.get("p") == "Vinted":
+        m = re.search(r"/items/(\d+)", x.get("u", ""))
+        if not m:
+            return None, "sin id de Vinted en la URL"
+        base = f"https://www.vinted.{VINTED_TLD}"
+        s = _vinted_sesion()
+        h = {"Accept": "application/json, text/plain, */*", "Locale": "es-ES", "Platform": "web",
+             "X-Next-App": "marketplace-web", "Origin": base, "Referer": base + "/"}
+        if getattr(s, "anon", ""):
+            h["X-Anon-Id"] = s.anon
+        resp = s.get(f"{base}/api/v2/items/{m.group(1)}", headers=h, timeout=20)
+        if resp.status_code in (401, 403):
+            _vinted["s"] = None  # renovar cookies la próxima vez
+            return None, f"HTTP {resp.status_code}"
+    else:
+        iid = x.get("iid")
+        if not iid:
+            return None, "sin id interno (anuncio guardado antes de esta función)"
+        resp = requests.get(f"https://api.wallapop.com/api/v3/items/{iid}", headers=HEADERS, timeout=20)
+    if resp.status_code in (404, 410):
+        return "gone", f"HTTP {resp.status_code}"
+    if resp.status_code != 200:
+        return None, f"HTTP {resp.status_code}"
+    try:
+        j = resp.json()
+    except ValueError:
+        return None, "la respuesta no es JSON"
+    banderas = {}
+    for n in ("sold", "is_sold", "is_closed", "reserved", "is_reserved", "expired", "banned"):
+        v = _flag(j, n)
+        if v is not None:
+            banderas[n] = v
+    return estado_de_json(j), f"HTTP 200, banderas={banderas or 'ninguna reconocida'}"
+
+
+def comprobar_vendidos():
+    """Consulta unos pocos anuncios por vuelta y anota los que han cambiado de estado."""
+    if not VEND_ON:
+        return
+    ahora_t = time.time()
+    if ahora_t - _vend["t"] > 120:  # copia del muro, refrescada cada 2 min (así se respetan los borrados del panel)
+        d, _ = leer_json_repo("data/results.json", {"items": []})
+        _vend["items"] = (d or {}).get("items", [])
+        _vend["t"] = ahora_t
+    vistos = _vend["vistos"]
+    pend = [x for x in _vend["items"]
+            if x.get("st") not in ("sold", "gone") and x.get("u")
+            and ahora_t - x.get("t", 0) < VEND_DIAS * 86400
+            and ahora_t - vistos.get(x["u"], 0) >= VEND_CADA]
+    pend.sort(key=lambda x: (vistos.get(x["u"], 0), -x.get("t", 0)))  # primero los nunca consultados, los más nuevos antes
+    hechos = set()
+    for x in pend:
+        if len(hechos) >= VEND_POR_CICLO:
+            break
+        if x["u"] in hechos:
+            continue
+        hechos.add(x["u"])
+        vistos[x["u"]] = ahora_t
+        try:
+            st, _det = consultar_estado(x)
+        except Exception as e:
+            print(f"[vendidos] error consultando {x['u'][:70]}: {e}")
+            continue
+        if st is None:
+            continue
+        nuevo = None if st == "active" else st
+        for y in _vend["items"]:
+            if y.get("u") == x["u"] and (y.get("st") or None) != nuevo:
+                if nuevo:
+                    y["st"] = nuevo
+                else:
+                    y.pop("st", None)
+                RES["upd"][(y["id"], str(y.get("kw", "")).lower())] = nuevo
+                print(f"[vendidos] {y.get('n', '')[:50]} -> {nuevo or 'disponible'}")
+        time.sleep(0.3)
 
 
 def cfg_of(bots):
@@ -873,6 +1081,10 @@ def iteracion(bots, meta):
     bots[:] = fusionar(remota, meta)
     procesar_updates(bots, meta)
     ok, err = comprobar_bots(bots, meta)
+    try:
+        comprobar_vendidos()
+    except Exception as e:
+        print("Aviso al comprobar vendidos:", e)
     if cfg_of(bots) != remota:  # cambios hechos por Telegram -> al repo
         escribir_config(cfg_of(bots), sha)
     guardar(bots, meta)
@@ -887,6 +1099,13 @@ def main():
     if not TOKEN or not CHAT_ID:
         raise SystemExit("Faltan TELEGRAM_TOKEN / TELEGRAM_CHAT_ID")
     meta = load_json(STATE_FILE, {})
+    # El "offset" de Telegram es propio de cada bot. Si este estado venía de otro bot (por ejemplo, al copiar
+    # el repo de otra persona), se reinicia para no ignorar los mensajes del bot nuevo.
+    huella = hashlib.md5(TOKEN.encode()).hexdigest()[:8]
+    if meta.get("tg") not in (None, huella):
+        print("El estado guardado es de otro bot de Telegram: reinicio el offset.")
+        meta["offset"] = 0
+    meta["tg"] = huella
     bots = []
     if LOOP_SECONDS <= 0:
         iteracion(bots, meta)
@@ -914,5 +1133,27 @@ def main():
     guardar(bots, meta)
 
 
+def probar(kw):
+    """python check.py --probar layton : busca y enseña qué responde la ficha de los primeros anuncios
+    (sirve para comprobar que la detección de vendidos entiende las respuestas de Wallapop y Vinted)."""
+    for nombre, fn in (("Wallapop", buscar), ("Vinted", buscar_vinted)):
+        try:
+            res = fn(kw, 0, SIN_LIMITE)[:3]
+        except Exception as e:
+            print(f"{nombre}: error en la búsqueda: {e}")
+            continue
+        print(f"== {nombre}: {len(res)} anuncios de muestra")
+        for r in res:
+            x = {"p": r["plat"], "u": r["enlace"], "iid": r.get("iid", "")}
+            try:
+                st, det = consultar_estado(x)
+            except Exception as e:
+                st, det = None, f"error: {e}"
+            print(f"  {r['nombre'][:55]!r} -> estado={st}  ({det})")
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) >= 3 and sys.argv[1] == "--probar":
+        probar(" ".join(sys.argv[2:]))
+    else:
+        main()
