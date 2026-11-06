@@ -57,8 +57,10 @@
     "min_price": 0,
     "max_price": 25,
     "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
+    "lang_mode": "solo",
+    "langs": [
+      "es"
+    ],
     "exclude": []
   }
 ]
