@@ -22,7 +22,7 @@
       "es"
     ],
     "exclude": [
-      "jean"
+      "jean*"
     ]
   },
   {
