@@ -8,7 +8,7 @@ Le dices qué buscas (por ejemplo *"layton"*, entre 0 y 25 €) y el bot te avis
 - 🌐 Filtro de **idioma**: ver solo los anuncios en un idioma, o excluir idiomas (por ejemplo, no quiero la versión italiana ni la francesa).
 - 🚫 **Palabras excluidas**: ignora los anuncios que contengan las palabras que tú elijas ("solo caja", "réplica"...).
 - 📱 Panel web (también se instala como app en el móvil) para crear, editar, pausar y borrar bots.
-- ✨ **Novedades**: un muro con foto, precio y plataforma de cada anuncio encontrado, con marca de **vendido / reservado / no disponible** y opción de quitar anuncios a mano.
+- ✨ **Novedades**: un muro con foto, precio y plataforma de cada anuncio encontrado, con opción de quitar anuncios a mano.
 - 🗄 Cuando borras un bot, sus anuncios pasan a **Archivados** (no se pierden).
 - 💬 También se maneja desde Telegram: `/bots`, `/nuevo`.
 
@@ -283,17 +283,12 @@ Si el **título o la descripción** contienen alguna de las palabras, el anuncio
 - Un **`*` al final** cubre variantes: `caja*` descarta *caja*, *cajas*, *cajita*...
 - Se buscan palabras completas: `caja` no descarta *"cajón"*.
 
-### Novedades, vendidos y archivados
+### Novedades y archivados
 
 La pestaña **Novedades** muestra los anuncios que ha ido encontrando el bot.
 
 - **NUEVO**: etiqueta de los últimos 10 minutos.
-- **Vendido / No disponible / Reservado**: el bot vuelve a mirar cada anuncio de vez en cuando (como máximo cada 15 minutos por anuncio, durante 45 días)
-  y marca el estado. Los vendidos salen en gris con la etiqueta; **no se borran solos**.
-  En el menú **⋯** puedes *ocultar* o *borrar* los vendidos de golpe.
-  - Wallapop: solo se pueden vigilar los anuncios encontrados **a partir de ahora**. Los guardados antes de esta función no tienen el dato necesario.
-  - Si no se entiende la respuesta de la plataforma, el estado **no se toca**.
-- **🗑 en cada tarjeta**: quita ese anuncio de Novedades. El bot no volverá a avisarte de él.
+- **🗑 en cada tarjeta**: quita ese anuncio de Novedades. El bot no volverá a avisarte de él. Es la forma de limpiar los que ya se han vendido.
 - **⋯ (arriba a la derecha)**: *Vaciar* un bot concreto, vaciar todo, o los archivados.
 - Si **editas** un bot (precio, plataformas, idioma o palabras excluidas), sus anuncios antiguos siguen bajo el mismo nombre,
   pero separados en una sección *"bot anterior"* con la configuración que tenía.
@@ -341,31 +336,6 @@ A los ~10 minutos sin latidos (corte de luz, Raspberry colgada, router caído...
 
 > Los avisos de estado solo funcionan en modo bucle (opción B). En GitHub Actions no hacen falta y están desactivados por defecto.
 
-### Comprobar que detecta los vendidos
-
-Wallapop y Vinted pueden cambiar sus respuestas. Para ver qué entiende el bot ahora mismo:
-
-```bash
-set -a; . ~/wallapop.env; set +a        # carga tus claves (opción B)
-./venv/bin/python check.py --probar layton
-```
-
-Muestra, para unos anuncios de muestra, el estado detectado y las banderas que ha leído (`sold`, `reserved`...).
-Si en `banderas=` aparece *ninguna reconocida*, la plataforma ha cambiado su formato y habrá que adaptar `estado_de_json()`.
-Para averiguar por qué un anuncio concreto sale como *vendido* o *no disponible*, usa `--estado` con parte de su título:
-
-```bash
-./venv/bin/python check.py --estado "professor layton"
-```
-
-Para cada anuncio del muro que coincida, muestra el estado guardado, lo que responde ahora la API y la ficha, y los campos de estado que devuelve la plataforma.
-Puedes apagar esta función con `CHECK_VENDIDOS=0`.
-
-**Cómo evita los falsos «NO DISPONIBLE».** Un anuncio solo se marca como *no disponible* si su propia ficha pública responde 404/410
-(un 404 de la API interna no basta, porque a veces la devuelve aunque el anuncio exista). Las banderas `sold`, `is_closed`, `reserved`...
-se leen solo del propio anuncio, no de objetos anidados como el usuario. Y los marcados como no disponibles se **vuelven a revisar**
-cada pocas horas: si alguno estaba mal marcado, se corrige solo. En `--probar` verás en el detalle de qué respuesta sale cada estado.
-
 ---
 
 ## Variables de configuración
@@ -382,9 +352,6 @@ Se definen como *secrets* (Actions) o en `~/wallapop.env` (opción B).
 | `CHECK_INTERVAL` | | `10` | Segundos entre comprobaciones. Recomendado: `30` o más. |
 | `WALLAPOP_LAT`, `WALLAPOP_LON` | | Madrid | Coordenadas de referencia de la búsqueda en Wallapop. |
 | `VINTED_TLD` | | `es` | Dominio de Vinted (`es`, `fr`, `it`, `de`...). |
-| `CHECK_VENDIDOS` | | `1` | `0` desactiva la vigilancia de vendidos. |
-| `VENDIDOS_CADA` | | `900` | Segundos mínimos entre dos consultas del mismo anuncio. |
-| `VENDIDOS_POR_CICLO` | | `4` | Anuncios que se consultan en cada vuelta. |
 | `AVISOS_ESTADO` | | `0` | `1` = avisos por Telegram al arrancar, detenerse y recuperar la conexión. |
 | `HEALTHCHECK_URL` | | | URL de latido (p. ej. healthchecks.io) para enterarte si la Raspberry se apaga. |
 
@@ -440,7 +407,7 @@ Revisa *Settings › Billing* de tu cuenta. Si no encuentras la causa, escribe a
 
 ```
 .
-├── check.py                    # el bot: búsquedas, filtros, avisos de Telegram, vigilancia de vendidos
+├── check.py                    # el bot: búsquedas, filtros, avisos de Telegram
 ├── requirements.txt            # requests (y lingua, opcional, para el detector de idioma)
 ├── data/
 │   ├── config.json             # tus bots (lo escriben el panel y Telegram)
