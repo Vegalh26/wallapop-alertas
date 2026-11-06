@@ -80,18 +80,5 @@
     "lang_mode": "off",
     "langs": [],
     "exclude": []
-  },
-  {
-    "id": "7z8lblno",
-    "status": "running",
-    "keywords": "Tomodachi",
-    "min_price": 0,
-    "max_price": 50,
-    "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
-    "exclude": [
-      "3ds"
-    ]
   }
 ]
