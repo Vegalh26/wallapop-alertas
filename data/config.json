@@ -21,7 +21,9 @@
     "langs": [
       "es"
     ],
-    "exclude": []
+    "exclude": [
+      "jean"
+    ]
   },
   {
     "id": "6ryt0uzn",
