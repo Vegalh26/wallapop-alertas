@@ -1,19 +1,5 @@
 [
   {
-    "id": "a5ip9z0i",
-    "status": "running",
-    "keywords": "ace attorney",
-    "min_price": 0,
-    "max_price": 30,
-    "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
-    "exclude": [
-      "cards",
-      "cartes"
-    ]
-  },
-  {
     "id": "02sl51t3",
     "status": "running",
     "keywords": "banana fish nendoroid",
