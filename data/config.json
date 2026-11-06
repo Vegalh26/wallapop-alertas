@@ -35,7 +35,10 @@
     "lang_mode": "off",
     "langs": [],
     "exclude": [
-      "scout"
+      "scout",
+      "cd",
+      "rock",
+      "rap"
     ]
   },
   {
