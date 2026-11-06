@@ -65,6 +65,8 @@
     "source": "ambos",
     "lang_mode": "off",
     "langs": [],
-    "exclude": []
+    "exclude": [
+      "cards"
+    ]
   }
 ]
