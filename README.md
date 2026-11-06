@@ -309,6 +309,38 @@ La pestaña **Novedades** muestra los anuncios que ha ido encontrando el bot.
 
 Los filtros de idioma y las palabras excluidas se configuran desde el panel.
 
+### Avisos si el bot o la Raspberry se caen
+
+Hay dos capas, y conviene activar las dos:
+
+**1. Avisos del propio bot** (`AVISOS_ESTADO=1` en `~/wallapop.env`). Te escribe por Telegram cuando:
+
+| Situación | Mensaje |
+|---|---|
+| Se apaga o reinicia la Raspberry, o haces `systemctl stop/restart` | 🔴 *Bot detenido* |
+| Arranca (tras encender, reiniciar o actualizar) | 🟢 *Bot en marcha*. Si estuvo parado más de 3 min, añade cuánto y desde cuándo. |
+| Se cae internet un rato y vuelve | ✅ *Conexión recuperada*, con los minutos que estuvo sin consultar |
+
+Esto cubre los apagados ordenados y los cortes de luz **después de que vuelva la luz** (el aviso de arranque dice cuánto estuvo caído).
+Una Raspberry sin corriente no puede mandar nada, así que para enterarte **mientras** está caída necesitas la capa 2.
+
+**2. Vigilante externo** (`HEALTHCHECK_URL`). El bot "late" cada minuto a un servicio externo gratuito; si dejan de llegar latidos, ese servicio te avisa.
+Con [healthchecks.io](https://healthchecks.io) (gratis):
+
+1. Crea una cuenta y un *check* nuevo. Pon **Period: 5 minutes** y **Grace Time: 5 minutes**.
+2. En *Integrations* añade **Telegram** (o email) y sigue sus pasos para que el aviso te llegue al móvil.
+3. Copia la *Ping URL* del check (algo como `https://hc-ping.com/xxxxxxxx-xxxx-...`).
+4. Añádela a `~/wallapop.env`:
+   ```
+   AVISOS_ESTADO=1
+   HEALTHCHECK_URL=https://hc-ping.com/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+5. Reinicia: `sudo systemctl restart wallapop`.
+
+A los ~10 minutos sin latidos (corte de luz, Raspberry colgada, router caído...) te llega el aviso, y otro cuando vuelva a latir.
+
+> Los avisos de estado solo funcionan en modo bucle (opción B). En GitHub Actions no hacen falta y están desactivados por defecto.
+
 ### Comprobar que detecta los vendidos
 
 Wallapop y Vinted pueden cambiar sus respuestas. Para ver qué entiende el bot ahora mismo:
@@ -320,6 +352,13 @@ set -a; . ~/wallapop.env; set +a        # carga tus claves (opción B)
 
 Muestra, para unos anuncios de muestra, el estado detectado y las banderas que ha leído (`sold`, `reserved`...).
 Si en `banderas=` aparece *ninguna reconocida*, la plataforma ha cambiado su formato y habrá que adaptar `estado_de_json()`.
+Para averiguar por qué un anuncio concreto sale como *vendido* o *no disponible*, usa `--estado` con parte de su título:
+
+```bash
+./venv/bin/python check.py --estado "professor layton"
+```
+
+Para cada anuncio del muro que coincida, muestra el estado guardado, lo que responde ahora la API y la ficha, y los campos de estado que devuelve la plataforma.
 Puedes apagar esta función con `CHECK_VENDIDOS=0`.
 
 **Cómo evita los falsos «NO DISPONIBLE».** Un anuncio solo se marca como *no disponible* si su propia ficha pública responde 404/410
@@ -346,6 +385,8 @@ Se definen como *secrets* (Actions) o en `~/wallapop.env` (opción B).
 | `CHECK_VENDIDOS` | | `1` | `0` desactiva la vigilancia de vendidos. |
 | `VENDIDOS_CADA` | | `900` | Segundos mínimos entre dos consultas del mismo anuncio. |
 | `VENDIDOS_POR_CICLO` | | `4` | Anuncios que se consultan en cada vuelta. |
+| `AVISOS_ESTADO` | | `0` | `1` = avisos por Telegram al arrancar, detenerse y recuperar la conexión. |
+| `HEALTHCHECK_URL` | | | URL de latido (p. ej. healthchecks.io) para enterarte si la Raspberry se apaga. |
 
 Los enlaces de los anuncios de Wallapop apuntan a `es.wallapop.com`; si buscas en otro país tendrás que cambiar ese dominio en `check.py`.
 
