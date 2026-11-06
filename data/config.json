@@ -62,5 +62,19 @@
       "es"
     ],
     "exclude": []
+  },
+  {
+    "id": "cm4wegd4",
+    "status": "running",
+    "keywords": "ave attorney",
+    "min_price": 0,
+    "max_price": 30,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [
+      "cards",
+      "cartes"
+    ]
   }
 ]
