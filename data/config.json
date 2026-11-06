@@ -62,5 +62,18 @@
       "es"
     ],
     "exclude": []
+  },
+  {
+    "id": "6ryt0uzn",
+    "status": "running",
+    "keywords": "jamboree",
+    "min_price": 0,
+    "max_price": 30,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [
+      "scout"
+    ]
   }
 ]
