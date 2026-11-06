@@ -29,7 +29,10 @@
     "max_price": 30,
     "source": "ambos",
     "lang_mode": "off",
-    "langs": []
+    "langs": [],
+    "exclude": [
+      "scout"
+    ]
   },
   {
     "id": "keshrwu4",
