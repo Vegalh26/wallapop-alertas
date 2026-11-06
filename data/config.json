@@ -45,7 +45,8 @@
     "lang_mode": "solo",
     "langs": [
       "es"
-    ]
+    ],
+    "exclude": []
   },
   {
     "id": "f7akstk5",
