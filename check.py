@@ -13,6 +13,7 @@ import html
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -964,16 +965,14 @@ def _estado_pagina(x, sesion=None):
     return None, f"ficha HTTP {r.status_code}"
 
 
-def consultar_estado(x):
-    """(estado, detalle) de un anuncio del muro. El detalle sirve para depurar con --probar."""
-    vinted = x.get("p") == "Vinted"
-    sesion = None
-    if vinted:
+def _pedir_api(x):
+    """Consulta la API del anuncio. Devuelve (respuesta, sesión_vinted, error). 'respuesta' es None si no se pudo."""
+    if x.get("p") == "Vinted":
         m = re.search(r"/items/(\d+)", x.get("u", ""))
         if not m:
-            return None, "sin id de Vinted en la URL"
+            return None, None, "sin id de Vinted en la URL"
         base = f"https://www.vinted.{VINTED_TLD}"
-        sesion = s = _vinted_sesion()
+        s = _vinted_sesion()
         h = {"Accept": "application/json, text/plain, */*", "Locale": "es-ES", "Platform": "web",
              "X-Next-App": "marketplace-web", "Origin": base, "Referer": base + "/"}
         if getattr(s, "anon", ""):
@@ -981,12 +980,20 @@ def consultar_estado(x):
         resp = s.get(f"{base}/api/v2/items/{m.group(1)}", headers=h, timeout=20)
         if resp.status_code in (401, 403):
             _vinted["s"] = None  # renovar cookies la próxima vez
-            return None, f"HTTP {resp.status_code}"
-    else:
-        iid = x.get("iid")
-        if not iid:
-            return None, "sin id interno (anuncio guardado antes de esta función)"
-        resp = requests.get(f"https://api.wallapop.com/api/v3/items/{iid}", headers=HEADERS, timeout=20)
+            return None, s, f"HTTP {resp.status_code}"
+        return resp, s, None
+    iid = x.get("iid")
+    if not iid:
+        return None, None, "sin id interno (anuncio guardado antes de esta función)"
+    return requests.get(f"https://api.wallapop.com/api/v3/items/{iid}", headers=HEADERS, timeout=20), None, None
+
+
+def consultar_estado(x):
+    """(estado, detalle) de un anuncio del muro. El detalle sirve para depurar con --probar / --estado."""
+    vinted = x.get("p") == "Vinted"
+    resp, sesion, error = _pedir_api(x)
+    if resp is None:
+        return None, error
     if resp.status_code in (404, 410):
         # Un 404 de la API NO basta (a veces la API da 404 aunque el anuncio exista): se confirma con la ficha.
         st, det = _estado_pagina(x, sesion)
@@ -1062,6 +1069,84 @@ def guardar(bots, meta):
     save_json(STATE_FILE, meta)
 
 
+# ---------- Avisos del estado del propio bot (opcionales) ----------
+# AVISOS_ESTADO=1  -> te escribe por Telegram cuando el bot arranca, se detiene (apagado/reinicio/parada del
+#                     servicio) y cuando recupera la conexión tras un rato sin poder consultar.
+# HEALTHCHECK_URL  -> cada minuto "late" a un vigilante externo (p. ej. healthchecks.io). Si dejan de llegar
+#                     latidos (corte de luz, Raspberry colgada, sin internet...) ese servicio te avisa.
+#                     Es lo único que detecta un apagón de verdad, porque una Raspberry apagada no puede escribir.
+AVISOS_ESTADO = os.environ.get("AVISOS_ESTADO", "0") == "1"
+HEALTHCHECK_URL = os.environ.get("HEALTHCHECK_URL", "").strip()
+ALIVE_FILE = Path(__file__).resolve().parent / ".alive"  # fuera de data/: git no lo toca
+_estado = {"parado": False, "ultimo_ok": time.time(), "ping": 0.0}
+
+
+def _dur(seg):
+    m = int(seg // 60)
+    if m < 1:
+        return "menos de 1 min"
+    if m < 60:
+        return f"{m} min"
+    h, m = divmod(m, 60)
+    if h < 48:
+        return f"{h} h {m} min" if m else f"{h} h"
+    return f"{h // 24} días"
+
+
+def marcar_vivo():
+    try:
+        ALIVE_FILE.write_text(str(int(time.time())))
+    except OSError:
+        pass
+
+
+def latido():
+    """Se llama en cada vuelta: apunta que sigue vivo y avisa al vigilante externo (máx. 1 vez por minuto)."""
+    marcar_vivo()
+    if HEALTHCHECK_URL and time.time() - _estado["ping"] >= 60:
+        _estado["ping"] = time.time()
+        try:
+            requests.get(HEALTHCHECK_URL, timeout=10)
+        except Exception as e:
+            print("Aviso healthcheck:", e)
+
+
+def aviso_arranque():
+    """Al arrancar: dice si estuvo parado (corte de luz, reinicio...) y cuánto, según la última vez que latió."""
+    try:
+        prev = int(ALIVE_FILE.read_text())
+    except (OSError, ValueError):
+        prev = None
+    marcar_vivo()
+    if not AVISOS_ESTADO:
+        return
+    if prev and time.time() - prev > 180:
+        desde = datetime.fromtimestamp(prev, ZoneInfo("Europe/Madrid")).strftime("%d/%m %H:%M")
+        send(f"🟢 <b>Bot en marcha de nuevo</b>\n⚠️ Estuvo sin funcionar unos <b>{_dur(time.time() - prev)}</b> "
+             f"(desde el {desde}).")
+    else:
+        send("🟢 <b>Bot en marcha</b>")
+
+
+def _al_parar(signum, frame):
+    """SIGTERM = apagado o reinicio de la Raspberry, o 'systemctl stop/restart'."""
+    if AVISOS_ESTADO and not _estado["parado"]:
+        _estado["parado"] = True
+        marcar_vivo()
+        send("🔴 <b>Bot detenido</b> (apagado o reinicio de la Raspberry, o parada del servicio).")
+    raise SystemExit(0)
+
+
+def aviso_conexion(ok, err):
+    """Si llevaba rato sin poder consultar nada (se cayó internet) y vuelve a funcionar, lo cuenta."""
+    if not (ok or not err):  # vuelta fallida
+        return
+    sin = time.time() - _estado["ultimo_ok"]
+    if AVISOS_ESTADO and sin > 300:
+        send(f"✅ <b>Conexión recuperada</b>: llevaba unos {_dur(sin)} sin poder consultar Wallapop ni Vinted.")
+    _estado["ultimo_ok"] = time.time()
+
+
 def git_guardar():
     """Sube data/state.json al repo (commit + push) sin romper el bucle si algo falla.
 
@@ -1130,24 +1215,35 @@ def main():
         return
 
     print(f"Modo bucle: {LOOP_SECONDS}s, cada {CHECK_INTERVAL}s")
+    signal.signal(signal.SIGTERM, _al_parar)
+    aviso_arranque()
     fin = time.time() + LOOP_SECONDS
     ultimo_git = time.time()
-    while time.time() < fin:
-        t0 = time.time()
+    try:
+        while time.time() < fin:
+            t0 = time.time()
+            try:
+                ok, err = iteracion(bots, meta)
+            except Exception as e:
+                print("Error en iteración:", e)
+                ok, err = 0, 1
+            latido()
+            aviso_conexion(ok, err)
+            if time.time() - ultimo_git > 600:
+                git_guardar()
+                ultimo_git = time.time()
+            pausa = 60 if (err and not ok) else CHECK_INTERVAL
+            try:
+                esperar_comandos(bots, meta, min(t0 + pausa, fin))
+            except Exception as e:
+                print("Error escuchando Telegram:", e)
+                time.sleep(5)
+    except SystemExit:  # parada ordenada: se guarda el estado para no repetir avisos al volver
         try:
-            ok, err = iteracion(bots, meta)
+            guardar(bots, meta)
         except Exception as e:
-            print("Error en iteración:", e)
-            ok, err = 0, 1
-        if time.time() - ultimo_git > 600:
-            git_guardar()
-            ultimo_git = time.time()
-        pausa = 60 if (err and not ok) else CHECK_INTERVAL
-        try:
-            esperar_comandos(bots, meta, min(t0 + pausa, fin))
-        except Exception as e:
-            print("Error escuchando Telegram:", e)
-            time.sleep(5)
+            print("Aviso al guardar al parar:", e)
+        raise
     guardar(bots, meta)
 
 
@@ -1170,8 +1266,40 @@ def probar(kw):
             print(f"  {r['nombre'][:55]!r} -> estado={st}  ({det})")
 
 
+def estado_de(texto):
+    """python check.py --estado "layton" : para los anuncios del muro cuyo título contenga el texto, enseña el estado
+    guardado y lo que responde AHORA la API y la ficha (para averiguar por qué uno sale como vendido o no disponible)."""
+    d, _ = leer_json_repo("data/results.json", {"items": []})
+    t = _sin_acentos(texto)
+    xs = [x for x in (d or {}).get("items", []) if t in _sin_acentos(x.get("n", ""))][:8]
+    if not xs:
+        print("Ningún anuncio del muro contiene ese texto.")
+    for x in xs:
+        print(f"\n== [{x.get('p')}] {x.get('n', '')[:60]}  (guardado: st={x.get('st')})\n   {x.get('u')}")
+        try:
+            st, det = consultar_estado(x)
+        except Exception as e:
+            st, det = None, f"error: {e}"
+        print(f"   ahora: {st}  ({det})")
+        try:
+            resp, _s, err = _pedir_api(x)
+            if resp is not None and resp.status_code == 200:
+                j = resp.json()
+                it = j.get("item") if isinstance(j.get("item"), dict) else j
+                raros = {k: (str(v)[:50] if not isinstance(v, (bool, type(None))) else v) for k, v in it.items()
+                         if isinstance(v, (bool, type(None)))
+                         or any(w in str(k).lower() for w in ("clos", "sold", "reserv", "hidden", "status", "state", "can_"))}
+                print("   campos del anuncio:", json.dumps(raros, ensure_ascii=False))
+            else:
+                print("   API:", err or f"HTTP {resp.status_code}")
+        except Exception as e:
+            print("   (no se pudo leer el detalle):", e)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) >= 3 and sys.argv[1] == "--probar":
+    if len(sys.argv) >= 3 and sys.argv[1] == "--estado":
+        estado_de(" ".join(sys.argv[2:]))
+    elif len(sys.argv) >= 3 and sys.argv[1] == "--probar":
         probar(" ".join(sys.argv[2:]))
     else:
         main()
