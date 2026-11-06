@@ -1,17 +1,5 @@
 [
   {
-    "id": "z6y91wkg",
-    "status": "running",
-    "keywords": "layton",
-    "min_price": 0,
-    "max_price": 25,
-    "source": "ambos",
-    "lang_mode": "solo",
-    "langs": [
-      "es"
-    ]
-  },
-  {
     "id": "81lkzao7",
     "status": "running",
     "keywords": "jamboree",
