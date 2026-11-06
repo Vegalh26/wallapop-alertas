@@ -904,21 +904,6 @@ VEND_DIAS = 45                                                           # pasad
 _vend = {"items": [], "t": 0.0, "vistos": {}}  # copia del muro, y cuándo se consultó cada URL por última vez
 
 
-def _valores(obj, nombres):
-    """Valores de todas las claves con alguno de esos nombres, a cualquier profundidad."""
-    out = []
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if str(k).lower() in nombres:
-                out.append(v)
-            if isinstance(v, (dict, list)):
-                out += _valores(v, nombres)
-    elif isinstance(obj, list):
-        for v in obj:
-            out += _valores(v, nombres)
-    return out
-
-
 def _bool(v):
     if isinstance(v, bool):
         return v
@@ -927,36 +912,68 @@ def _bool(v):
     return None
 
 
-def _flag(obj, *nombres):
+def _candidatos(j, vinted=False):
+    """Diccionarios donde se miran las banderas: solo los del propio anuncio, NUNCA objetos anidados
+    (usuario, fotos, otros anuncios del vendedor...), que pueden traer banderas que no son de este anuncio."""
+    if not isinstance(j, dict):
+        return []
+    if vinted:
+        it = j.get("item")
+        return [it if isinstance(it, dict) else j]
+    return [j, j.get("flags")]
+
+
+def _flag(dicts, *nombres):
     """True/False si encuentra alguna de esas banderas; None si no aparece ninguna."""
-    vs = [b for b in (_bool(v) for v in _valores(obj, set(nombres))) if b is not None]
+    vs = []
+    for d in dicts:
+        if isinstance(d, dict):
+            vs += [b for b in (_bool(d.get(n)) for n in nombres) if b is not None]
     return None if not vs else any(vs)
 
 
-def estado_de_json(j):
+def estado_de_json(j, vinted=False):
     """'sold' | 'gone' | 'reserved' | 'active' | None (None = no se entiende la respuesta)."""
-    if _flag(j, "sold", "is_sold"):
+    c = _candidatos(j, vinted)
+    if vinted:
+        if _flag(c, "is_closed"):
+            return "sold" if str(c[0].get("item_closing_action") or "").lower() == "sold" else "gone"
+        if _flag(c, "is_reserved"):
+            return "reserved"
+        return "active" if _flag(c, "is_closed", "is_reserved") is not None else None
+    if _flag(c, "sold", "is_sold"):
         return "sold"
-    if _flag(j, "is_closed"):
-        acc = [str(v).lower() for v in _valores(j, {"item_closing_action"}) if isinstance(v, str)]
-        return "sold" if "sold" in acc else "gone"
-    if _flag(j, "expired", "banned", "is_hidden", "hidden"):
+    if _flag(c, "expired", "banned"):
         return "gone"
-    if _flag(j, "reserved", "is_reserved"):
+    if _flag(c, "reserved", "is_reserved"):
         return "reserved"
-    if _flag(j, "sold", "is_sold", "is_closed", "reserved", "is_reserved") is not None:
-        return "active"
-    return None
+    return "active" if _flag(c, "sold", "is_sold", "reserved", "is_reserved") is not None else None
+
+
+def _estado_pagina(x, sesion=None):
+    """Confirma mirando la ficha pública. Solo un 404/410 de la propia ficha cuenta como 'gone'.
+    Si la ficha carga, el anuncio sigue ahí ('active'). No se lee 'vendido' del HTML porque la página
+    incluye también otros anuncios del vendedor y se podría confundir uno con otro."""
+    h = {"User-Agent": HEADERS["User-Agent"], "Accept": "text/html,application/xhtml+xml",
+         "Accept-Language": "es-ES,es;q=0.9"}
+    r = (sesion or requests).get(x["u"], headers=h, timeout=20)
+    if r.status_code in (404, 410):
+        return "gone", f"ficha HTTP {r.status_code}"
+    if r.status_code == 200:
+        return "active", "ficha HTTP 200"
+    return None, f"ficha HTTP {r.status_code}"
 
 
 def consultar_estado(x):
     """(estado, detalle) de un anuncio del muro. El detalle sirve para depurar con --probar."""
-    if x.get("p") == "Vinted":
+    vinted = x.get("p") == "Vinted"
+    sesion = None
+    if vinted:
         m = re.search(r"/items/(\d+)", x.get("u", ""))
         if not m:
             return None, "sin id de Vinted en la URL"
         base = f"https://www.vinted.{VINTED_TLD}"
-        s = _vinted_sesion()
+        sesion = s = _vinted_sesion()
         h = {"Accept": "application/json, text/plain, */*", "Locale": "es-ES", "Platform": "web",
              "X-Next-App": "marketplace-web", "Origin": base, "Referer": base + "/"}
         if getattr(s, "anon", ""):
@@ -971,19 +988,19 @@ def consultar_estado(x):
             return None, "sin id interno (anuncio guardado antes de esta función)"
         resp = requests.get(f"https://api.wallapop.com/api/v3/items/{iid}", headers=HEADERS, timeout=20)
     if resp.status_code in (404, 410):
-        return "gone", f"HTTP {resp.status_code}"
+        # Un 404 de la API NO basta (a veces la API da 404 aunque el anuncio exista): se confirma con la ficha.
+        st, det = _estado_pagina(x, sesion)
+        return st, f"API HTTP {resp.status_code}; {det}"
     if resp.status_code != 200:
         return None, f"HTTP {resp.status_code}"
     try:
         j = resp.json()
     except ValueError:
         return None, "la respuesta no es JSON"
-    banderas = {}
-    for n in ("sold", "is_sold", "is_closed", "reserved", "is_reserved", "expired", "banned"):
-        v = _flag(j, n)
-        if v is not None:
-            banderas[n] = v
-    return estado_de_json(j), f"HTTP 200, banderas={banderas or 'ninguna reconocida'}"
+    c = _candidatos(j, vinted)
+    banderas = {n: v for n in ("sold", "is_sold", "is_closed", "reserved", "is_reserved", "expired", "banned")
+                if (v := _flag(c, n)) is not None}
+    return estado_de_json(j, vinted), f"HTTP 200, banderas={banderas or 'ninguna reconocida'}"
 
 
 def comprobar_vendidos():
@@ -996,10 +1013,11 @@ def comprobar_vendidos():
         _vend["items"] = (d or {}).get("items", [])
         _vend["t"] = ahora_t
     vistos = _vend["vistos"]
+    # Los "gone" también se revisan (más espaciado): si alguno se marcó por error, así se corrige solo.
     pend = [x for x in _vend["items"]
-            if x.get("st") not in ("sold", "gone") and x.get("u")
+            if x.get("st") != "sold" and x.get("u")
             and ahora_t - x.get("t", 0) < VEND_DIAS * 86400
-            and ahora_t - vistos.get(x["u"], 0) >= VEND_CADA]
+            and ahora_t - vistos.get(x["u"], 0) >= (6 * 3600 if x.get("st") == "gone" else VEND_CADA)]
     pend.sort(key=lambda x: (vistos.get(x["u"], 0), -x.get("t", 0)))  # primero los nunca consultados, los más nuevos antes
     hechos = set()
     for x in pend:
