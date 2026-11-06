@@ -322,6 +322,11 @@ Muestra, para unos anuncios de muestra, el estado detectado y las banderas que h
 Si en `banderas=` aparece *ninguna reconocida*, la plataforma ha cambiado su formato y habrá que adaptar `estado_de_json()`.
 Puedes apagar esta función con `CHECK_VENDIDOS=0`.
 
+**Cómo evita los falsos «NO DISPONIBLE».** Un anuncio solo se marca como *no disponible* si su propia ficha pública responde 404/410
+(un 404 de la API interna no basta, porque a veces la devuelve aunque el anuncio exista). Las banderas `sold`, `is_closed`, `reserved`...
+se leen solo del propio anuncio, no de objetos anidados como el usuario. Y los marcados como no disponibles se **vuelven a revisar**
+cada pocas horas: si alguno estaba mal marcado, se corrige solo. En `--probar` verás en el detalle de qué respuesta sale cada estado.
+
 ---
 
 ## Variables de configuración
