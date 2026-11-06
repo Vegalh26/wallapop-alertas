@@ -67,7 +67,8 @@
     "lang_mode": "off",
     "langs": [],
     "exclude": [
-      "cards"
+      "cards",
+      "cartes"
     ]
   }
 ]
