@@ -1,16 +1,5 @@
 [
   {
-    "id": "qa7hakvm",
-    "status": "running",
-    "keywords": "banana fish nendoroid",
-    "min_price": 0,
-    "max_price": 1000,
-    "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
-    "exclude": []
-  },
-  {
     "id": "z6y91wkg",
     "status": "running",
     "keywords": "layton",
