@@ -52,17 +52,6 @@
     ]
   },
   {
-    "id": "wlyoqnoc",
-    "status": "running",
-    "keywords": "peluche pusheen",
-    "min_price": 0,
-    "max_price": 1000,
-    "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
-    "exclude": []
-  },
-  {
     "id": "02sl51t3",
     "status": "running",
     "keywords": "banana fish nendoroid",
