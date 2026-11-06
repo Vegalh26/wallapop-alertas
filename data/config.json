@@ -1,18 +1,5 @@
 [
   {
-    "id": "81lkzao7",
-    "status": "running",
-    "keywords": "jamboree",
-    "min_price": 0,
-    "max_price": 30,
-    "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
-    "exclude": [
-      "scout"
-    ]
-  },
-  {
     "id": "keshrwu4",
     "status": "running",
     "keywords": "yona 27",
