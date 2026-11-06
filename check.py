@@ -607,7 +607,6 @@ def buscar(keywords, min_price, max_price):
             "plat": "Wallapop",
             "img": _primera_url(content.get("images")),
             "desc": str(content.get("description") or "")[:600],
-            "iid": str(content.get("id") or ""),
         })
     return resultados
 
@@ -828,7 +827,7 @@ def escribir_config(cfg, sha):
 # ---------- Muro de novedades (lo lee y lo limpia el panel web) ----------
 # El panel también escribe data/results.json (botones "Vaciar"), así que aquí NO se guarda una copia
 # propia: las novedades nuevas se acumulan en RES["new"] y al guardar se fusionan con lo que haya en el repo.
-RES = {"new": [], "upd": {}, "sha": None}  # upd: cambios de estado (vendido...) pendientes de subir
+RES = {"new": [], "upd": {}, "sha": None}  # upd: cambios de estado pendientes de subir (ya sin uso)
 RES_MAX = 150   # novedades de bots que existen
 ARCH_MAX = 100  # novedades de bots borrados (se muestran en "Archivados")
 
@@ -846,8 +845,6 @@ def registrar(b, items):
         it = {"id": i, "t": t, "kw": b["keywords"], "p": r.get("plat", "Wallapop"), "n": r["nombre"],
               "pr": r["precio"], "u": r["enlace"], "im": r.get("img", ""),
               "f": firma(b), "lg": ",".join(r.get("lg", []))}
-        if r.get("iid"):
-            it["iid"] = r["iid"]  # id interno de Wallapop: sirve para consultar si ya se vendió
         lote.append(it)
     if lote:
         RES["new"] = lote + RES["new"]
@@ -875,7 +872,7 @@ def guardar_recientes(bots=None):
         d, sha = leer_json_repo("data/results.json", {"items": []})
         remoto = (d or {}).get("items", [])
         ids = {(x["id"], str(x.get("kw", "")).lower()) for x in remoto}
-        for x in remoto:  # estados nuevos (vendido, reservado...) sobre lo que haya en el repo
+        for x in remoto:  # estados pendientes sobre lo que haya en el repo
             k = (x["id"], str(x.get("kw", "")).lower())
             if k in RES["upd"]:
                 if RES["upd"][k]:
@@ -892,185 +889,6 @@ def guardar_recientes(bots=None):
         RES["new"] = []
         RES["upd"] = {}
         return
-
-
-# ---------- ¿Se ha vendido ya? ----------
-# El bot consulta cada cierto tiempo la ficha de los anuncios de Novedades y apunta si siguen a la
-# venta ("sold" vendido, "gone" ya no disponible, "reserved" reservado). Solo cambia el estado cuando
-# la respuesta lo dice con claridad; si no la entiende, no toca nada. Se puede apagar con CHECK_VENDIDOS=0.
-VEND_ON = os.environ.get("CHECK_VENDIDOS", "1") != "0"
-VEND_CADA = int(os.environ.get("VENDIDOS_CADA", "900") or 900)           # s mínimos entre dos consultas del mismo anuncio
-VEND_POR_CICLO = int(os.environ.get("VENDIDOS_POR_CICLO", "4") or 4)     # anuncios que se consultan en cada vuelta
-VEND_DIAS = 45                                                           # pasado este tiempo se deja de consultar
-_vend = {"items": [], "t": 0.0, "vistos": {}}  # copia del muro, y cuándo se consultó cada URL por última vez
-
-
-def _bool(v):
-    if isinstance(v, bool):
-        return v
-    if isinstance(v, dict) and isinstance(v.get("flag"), bool):  # Wallapop a veces usa {"flag": true}
-        return v["flag"]
-    return None
-
-
-def _candidatos(j, vinted=False):
-    """Diccionarios donde se miran las banderas: solo los del propio anuncio, NUNCA objetos anidados
-    (usuario, fotos, otros anuncios del vendedor...), que pueden traer banderas que no son de este anuncio."""
-    if not isinstance(j, dict):
-        return []
-    if vinted:
-        it = j.get("item")
-        return [it if isinstance(it, dict) else j]
-    return [j, j.get("flags")]
-
-
-def _flag(dicts, *nombres):
-    """True/False si encuentra alguna de esas banderas; None si no aparece ninguna."""
-    vs = []
-    for d in dicts:
-        if isinstance(d, dict):
-            vs += [b for b in (_bool(d.get(n)) for n in nombres) if b is not None]
-    return None if not vs else any(vs)
-
-
-def estado_de_json(j, vinted=False):
-    """'sold' | 'gone' | 'reserved' | 'active' | None (None = no se entiende la respuesta)."""
-    c = _candidatos(j, vinted)
-    if vinted:
-        if _flag(c, "is_closed"):
-            return "sold" if str(c[0].get("item_closing_action") or "").lower() == "sold" else "gone"
-        if _flag(c, "is_reserved"):
-            return "reserved"
-        return "active" if _flag(c, "is_closed", "is_reserved") is not None else None
-    if _flag(c, "sold", "is_sold"):
-        return "sold"
-    if _flag(c, "expired", "banned"):
-        return "gone"
-    if _flag(c, "reserved", "is_reserved"):
-        return "reserved"
-    return "active" if _flag(c, "sold", "is_sold", "reserved", "is_reserved") is not None else None
-
-
-def _ld_disponibilidad(t):
-    """Valores 'availability' de los JSON-LD tipo Product de la ficha (datos del producto principal, no de otros anuncios)."""
-    out = []
-    for m in re.finditer(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', t, re.S | re.I):
-        try:
-            d = json.loads(m.group(1))
-        except ValueError:
-            continue
-        for o in (d if isinstance(d, list) else [d]):
-            if isinstance(o, dict) and "Product" in str(o.get("@type")):
-                of = o.get("offers")
-                for f in (of if isinstance(of, list) else [of]):
-                    if isinstance(f, dict) and f.get("availability"):
-                        out.append(str(f["availability"]).rsplit("/", 1)[-1])
-    return out
-
-
-def _estado_pagina(x, sesion=None):
-    """Confirma mirando la ficha pública. Solo un 404/410 de la propia ficha cuenta como 'gone'.
-    Si la ficha carga, el anuncio sigue ahí ('active'). No se lee 'vendido' del HTML porque la página
-    incluye también otros anuncios del vendedor y se podría confundir uno con otro."""
-    h = {"User-Agent": HEADERS["User-Agent"], "Accept": "text/html,application/xhtml+xml",
-         "Accept-Language": "es-ES,es;q=0.9"}
-    r = (sesion or requests).get(x["u"], headers=h, timeout=20)
-    if r.status_code in (404, 410):
-        return "gone", f"ficha HTTP {r.status_code}"
-    if r.status_code == 200:
-        av = _ld_disponibilidad(r.text)
-        if av and av[0] in ("OutOfStock", "SoldOut", "Discontinued"):
-            return "sold", f"ficha HTTP 200, availability={av[0]}"
-        return "active", "ficha HTTP 200" + (f", availability={av[0]}" if av else "")
-    return None, f"ficha HTTP {r.status_code}"
-
-
-def _pedir_api(x):
-    """Consulta la API del anuncio. Devuelve (respuesta, sesión_vinted, error). 'respuesta' es None si no se pudo."""
-    if x.get("p") == "Vinted":
-        m = re.search(r"/items/(\d+)", x.get("u", ""))
-        if not m:
-            return None, None, "sin id de Vinted en la URL"
-        base = f"https://www.vinted.{VINTED_TLD}"
-        s = _vinted_sesion()
-        h = {"Accept": "application/json, text/plain, */*", "Locale": "es-ES", "Platform": "web",
-             "X-Next-App": "marketplace-web", "Origin": base, "Referer": base + "/"}
-        if getattr(s, "anon", ""):
-            h["X-Anon-Id"] = s.anon
-        resp = s.get(f"{base}/api/v2/items/{m.group(1)}", headers=h, timeout=20)
-        if resp.status_code in (401, 403):
-            _vinted["s"] = None  # renovar cookies la próxima vez
-            return None, s, f"HTTP {resp.status_code}"
-        return resp, s, None
-    iid = x.get("iid")
-    if not iid:
-        return None, None, "sin id interno (anuncio guardado antes de esta función)"
-    return requests.get(f"https://api.wallapop.com/api/v3/items/{iid}", headers=HEADERS, timeout=20), None, None
-
-
-def consultar_estado(x):
-    """(estado, detalle) de un anuncio del muro. El detalle sirve para depurar con --probar / --estado."""
-    vinted = x.get("p") == "Vinted"
-    resp, sesion, error = _pedir_api(x)
-    if resp is None:
-        return None, error
-    if resp.status_code in (404, 410):
-        # Un 404 de la API NO basta (a veces la API da 404 aunque el anuncio exista): se confirma con la ficha.
-        st, det = _estado_pagina(x, sesion)
-        return st, f"API HTTP {resp.status_code}; {det}"
-    if resp.status_code != 200:
-        return None, f"HTTP {resp.status_code}"
-    try:
-        j = resp.json()
-    except ValueError:
-        return None, "la respuesta no es JSON"
-    c = _candidatos(j, vinted)
-    banderas = {n: v for n in ("sold", "is_sold", "is_closed", "reserved", "is_reserved", "expired", "banned")
-                if (v := _flag(c, n)) is not None}
-    return estado_de_json(j, vinted), f"HTTP 200, banderas={banderas or 'ninguna reconocida'}"
-
-
-def comprobar_vendidos():
-    """Consulta unos pocos anuncios por vuelta y anota los que han cambiado de estado."""
-    if not VEND_ON:
-        return
-    ahora_t = time.time()
-    if ahora_t - _vend["t"] > 120:  # copia del muro, refrescada cada 2 min (así se respetan los borrados del panel)
-        d, _ = leer_json_repo("data/results.json", {"items": []})
-        _vend["items"] = (d or {}).get("items", [])
-        _vend["t"] = ahora_t
-    vistos = _vend["vistos"]
-    # Los "gone" también se revisan (más espaciado): si alguno se marcó por error, así se corrige solo.
-    pend = [x for x in _vend["items"]
-            if x.get("st") != "sold" and x.get("u")
-            and ahora_t - x.get("t", 0) < VEND_DIAS * 86400
-            and ahora_t - vistos.get(x["u"], 0) >= (6 * 3600 if x.get("st") == "gone" else VEND_CADA)]
-    pend.sort(key=lambda x: (vistos.get(x["u"], 0), -x.get("t", 0)))  # primero los nunca consultados, los más nuevos antes
-    hechos = set()
-    for x in pend:
-        if len(hechos) >= VEND_POR_CICLO:
-            break
-        if x["u"] in hechos:
-            continue
-        hechos.add(x["u"])
-        vistos[x["u"]] = ahora_t
-        try:
-            st, _det = consultar_estado(x)
-        except Exception as e:
-            print(f"[vendidos] error consultando {x['u'][:70]}: {e}")
-            continue
-        if st is None:
-            continue
-        nuevo = None if st == "active" else st
-        for y in _vend["items"]:
-            if y.get("u") == x["u"] and (y.get("st") or None) != nuevo:
-                if nuevo:
-                    y["st"] = nuevo
-                else:
-                    y.pop("st", None)
-                RES["upd"][(y["id"], str(y.get("kw", "")).lower())] = nuevo
-                print(f"[vendidos] {y.get('n', '')[:50]} -> {nuevo or 'disponible'}")
-        time.sleep(0.3)
 
 
 def cfg_of(bots):
@@ -1204,10 +1022,6 @@ def iteracion(bots, meta):
     bots[:] = fusionar(remota, meta)
     procesar_updates(bots, meta)
     ok, err = comprobar_bots(bots, meta)
-    try:
-        comprobar_vendidos()
-    except Exception as e:
-        print("Aviso al comprobar vendidos:", e)
     if cfg_of(bots) != remota:  # cambios hechos por Telegram -> al repo
         escribir_config(cfg_of(bots), sha)
     guardar(bots, meta)
@@ -1267,72 +1081,5 @@ def main():
     guardar(bots, meta)
 
 
-def probar(kw):
-    """python check.py --probar layton : busca y enseña qué responde la ficha de los primeros anuncios
-    (sirve para comprobar que la detección de vendidos entiende las respuestas de Wallapop y Vinted)."""
-    for nombre, fn in (("Wallapop", buscar), ("Vinted", buscar_vinted)):
-        try:
-            res = fn(kw, 0, SIN_LIMITE)[:3]
-        except Exception as e:
-            print(f"{nombre}: error en la búsqueda: {e}")
-            continue
-        print(f"== {nombre}: {len(res)} anuncios de muestra")
-        for r in res:
-            x = {"p": r["plat"], "u": r["enlace"], "iid": r.get("iid", "")}
-            try:
-                st, det = consultar_estado(x)
-            except Exception as e:
-                st, det = None, f"error: {e}"
-            print(f"  {r['nombre'][:55]!r} -> estado={st}  ({det})")
-
-
-def estado_de(texto):
-    """python check.py --estado "layton" : para los anuncios del muro cuyo título contenga el texto, enseña el estado
-    guardado y lo que responde AHORA la API y la ficha (para averiguar por qué uno sale como vendido o no disponible)."""
-    d, _ = leer_json_repo("data/results.json", {"items": []})
-    t = _sin_acentos(texto)
-    xs = [x for x in (d or {}).get("items", []) if t in _sin_acentos(x.get("n", ""))][:8]
-    if not xs:
-        print("Ningún anuncio del muro contiene ese texto.")
-    for x in xs:
-        print(f"\n== [{x.get('p')}] {x.get('n', '')[:60]}  (guardado: st={x.get('st')})\n   {x.get('u')}")
-        try:
-            st, det = consultar_estado(x)
-        except Exception as e:
-            st, det = None, f"error: {e}"
-        print(f"   ahora: {st}  ({det})")
-        _s = None
-        try:
-            resp, _s, err = _pedir_api(x)
-            if resp is not None and resp.status_code == 200:
-                j = resp.json()
-                it = j.get("item") if isinstance(j.get("item"), dict) else j
-                raros = {k: (str(v)[:50] if not isinstance(v, (bool, type(None))) else v) for k, v in it.items()
-                         if isinstance(v, (bool, type(None)))
-                         or any(w in str(k).lower() for w in ("clos", "sold", "reserv", "hidden", "status", "state", "can_"))}
-                print("   campos del anuncio:", json.dumps(raros, ensure_ascii=False))
-            else:
-                print("   API:", err or f"HTTP {resp.status_code}")
-        except Exception as e:
-            print("   (no se pudo leer el detalle):", e)
-        try:  # qué hay en la ficha pública (para ajustar la detección de vendidos)
-            r = (_s or requests).get(x["u"], headers={"User-Agent": HEADERS["User-Agent"], "Accept": "text/html",
-                                                      "Accept-Language": "es-ES,es;q=0.9"}, timeout=20)
-            t = r.text
-            print(f"   ficha: HTTP {r.status_code}, {len(t)} caracteres, JSON-LD availability={_ld_disponibilidad(t)}")
-            for pat in ("is_closed", "item_closing_action", "Vendido", "SoldOut", "OutOfStock", "is_reserved"):
-                pos = [m.start() for m in re.finditer(re.escape(pat), t)]
-                if pos:
-                    print(f"   · {pat}: {len(pos)} veces. Ej: " + " || ".join(
-                        t[max(0, i - 60):i + 80].replace("\n", " ") for i in pos[:2]))
-        except Exception as e:
-            print("   (no se pudo leer la ficha):", e)
-
-
 if __name__ == "__main__":
-    if len(sys.argv) >= 3 and sys.argv[1] == "--estado":
-        estado_de(" ".join(sys.argv[2:]))
-    elif len(sys.argv) >= 3 and sys.argv[1] == "--probar":
-        probar(" ".join(sys.argv[2:]))
-    else:
-        main()
+    main()
