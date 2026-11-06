@@ -61,5 +61,16 @@
       "cards",
       "cartes"
     ]
+  },
+  {
+    "id": "wlyoqnoc",
+    "status": "running",
+    "keywords": "peluche pusheen",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": []
   }
 ]
