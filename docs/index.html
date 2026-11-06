@@ -49,7 +49,8 @@ main.wide{max-width:1100px}
 .fl button{min-height:36px;padding:0 14px;border-radius:99px;font-size:13px;white-space:nowrap;background:var(--card);color:var(--mut);border:1px solid var(--bd);box-shadow:none}
 .fl button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
 .grid{column-count:2;column-gap:12px}@media(min-width:760px){.grid{column-count:3}}@media(min-width:1000px){.grid{column-count:4}}
-.pin{break-inside:avoid;margin-bottom:12px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--bd);display:block;color:inherit;text-decoration:none;box-shadow:var(--sh);transition:.15s}
+.pin{position:relative;break-inside:avoid;margin-bottom:12px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--bd);display:block;color:inherit;text-decoration:none;box-shadow:var(--sh);transition:.15s}
+.pin>a{display:block;color:inherit;text-decoration:none;font-size:inherit}
 .pin:active{transform:scale(.98)}@media(hover:hover){.pin:hover{transform:translateY(-3px)}}
 .ph{position:relative;background:var(--soft)}.ph img{width:100%;display:block;min-height:110px;object-fit:cover}
 .ph.noimg{height:150px;display:grid;place-items:center;background:linear-gradient(135deg,var(--soft),var(--bd))}.ph.noimg::after{content:"🛍️";font-size:34px;opacity:.6}
@@ -103,6 +104,13 @@ main.wide{max-width:1100px}
 .menu{position:absolute;right:0;top:42px;z-index:8;min-width:240px;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.25)}
 .menu button{display:block;width:100%;text-align:left;min-height:42px;background:transparent;color:var(--tx);border:0;border-radius:10px;padding:0 12px;font-size:14px;font-weight:500}
 .menu button:hover{background:var(--soft)}.menu button.dg{color:var(--rd)}
+.xb{position:absolute;right:8px;bottom:8px;width:32px;height:32px;min-height:0;padding:0;border-radius:99px;background:var(--soft);color:var(--mut);border:1px solid var(--bd);font-size:15px;line-height:1;box-shadow:none;opacity:.85}
+.xb:hover{opacity:1;color:var(--rd);border-color:var(--rd)}.pin .pb{padding-right:48px}
+.sdl{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.sdl span{background:rgba(0,0,0,.78);color:#fff;font-weight:800;letter-spacing:.08em;padding:6px 14px;border-radius:8px;transform:rotate(-8deg);font-size:14px;text-align:center}.sdl span.gn{background:rgba(90,98,110,.9);font-size:12px}
+.pin.sd .ph img,.pin.sd .ph.noimg{filter:grayscale(1);opacity:.45}.pin.sd .pb{opacity:.6}
+.rs{position:absolute;right:8px;bottom:8px;background:#f59e0b;color:#fff;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700}
+.menu button.nt{color:var(--tx)}
 .oh{margin:24px 0 12px;padding:10px 14px;border-radius:12px;background:var(--soft);border:1px dashed var(--bd);font-size:14px}.oh small{display:block;color:var(--mut);font-size:12.5px;margin-top:2px}
 </style></head><body><main>
 
@@ -132,6 +140,8 @@ main.wide{max-width:1100px}
    <label>Idioma</label>
    <div class="seg" id="lseg"><button class="on" data-v="off" onclick="setLM('off')">Todos</button><button data-v="excluir" onclick="setLM('excluir')">Excluir</button><button data-v="solo" onclick="setLM('solo')">Solo</button></div>
    <div class="fl lg hide" id="lbox"></div><p class="foot hide" id="lhint" style="text-align:left;margin:2px 0 0"></p>
+   <label>Excluir palabras <span style="text-transform:none;font-weight:400">(opcional)</span></label><input id="ex" placeholder="solo caja, funda*, réplica" autocapitalize="off" autocorrect="off" enterkeyhint="done">
+   <p class="foot" style="text-align:left;margin:4px 0 0">Separadas por comas. Si el título o la descripción contiene alguna, el anuncio se ignora. Con <b>*</b> al final cubres variantes (<i>caja*</i> → caja, cajas).</p>
    <div class="row" style="margin-top:16px"><button id="sv" onclick="add()">Crear bot</button><button id="cn" class="g hide" onclick="cancelEdit()">Cancelar</button><button class="g" style="flex:.45" onclick="load()" title="Recargar">↻</button></div>
    <p class="foot" style="text-align:left;margin:12px 0 0">Máx 1000 = sin límite. Los cambios se aplican en segundos.</p></div>
   <div id="list"></div>
@@ -146,7 +156,7 @@ const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder()
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LANGS=[["it","🇮🇹 Italiano"],["fr","🇫🇷 Francés"],["en","🇬🇧 Inglés"],["de","🇩🇪 Alemán"],["pt","🇵🇹 Portugués"],["jp","🇯🇵 Japonés"],["es","🇪🇸 Español"]];
-let LM="off",LS=[],cfgOk=false,feedSha=null;
+let LM="off",LS=[],cfgOk=false,feedSha=null,hideSold=false;try{hideSold=!!localStorage.getItem("wbhs")}catch(e){}
 let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt,feed=[],fKw="",fPl="",tab="bots",fiv;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
 async function key(p,salt){const k=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);
@@ -203,7 +213,7 @@ async function push(t){const b={message:t,content:btoa(unescape(encodeURICompone
 function render(){const a=cfg.filter(b=>b.status!="paused").length;$("#s1").textContent=a;$("#s2").textContent=cfg.length-a;$("#s3").textContent=cfg.length;
  $("#list").innerHTML=cfg.length?cfg.map((b,i)=>{const s=b.source||"ambos",p=b.status=="paused";
  return`<div class="card"><div class="bhead"><b>${esc(b.keywords)}</b><span class="pill ${p?"off":"on"}">${p?"⏸ Pausado":"● Activo"}</span></div>
- <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip cw">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip cv">🟣 Vinted</span>':""}${b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length?`<span class="chip">🌐 ${b.lang_mode=="solo"?"Solo":"Sin"} ${b.langs.map(c=>(LANGS.find(l=>l[0]==c)||["",c])[1].replace(/^\S+\s/,"")).join(", ")}</span>`:""}</div>
+ <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip cw">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip cv">🟣 Vinted</span>':""}${b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length?`<span class="chip">🌐 ${b.lang_mode=="solo"?"Solo":"Sin"} ${b.langs.map(c=>(LANGS.find(l=>l[0]==c)||["",c])[1].replace(/^\S+\s/,"")).join(", ")}</span>`:""}${(b.exclude||[]).length?`<span class="chip">🚫 ${esc(b.exclude.slice(0,3).join(", "))}${b.exclude.length>3?" +"+(b.exclude.length-3):""}</span>`:""}</div>
  <div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${p?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`}).join("")
  :'<div class="card empty"><div class="big">🔍</div><b>Aún no tienes bots</b><br>Crea el primero arriba y te avisaré por Telegram.</div>'}
 const apiF=()=>`https://api.github.com/repos/${REPO}/contents/data/results.json`;
@@ -224,11 +234,11 @@ async function loadFeed(silent){
 const SRCN={ambos:"Wallapop + Vinted",wallapop:"Wallapop",vinted:"Vinted"};
 const lname=c=>((LANGS.find(l=>l[0]==c)||["",c])[1]).replace(/^\S+\s/,""),lflag=c=>((LANGS.find(l=>l[0]==c)||["",c])[1]).split(" ")[0];
 /* "firma" de un bot: precio|plataformas|idioma. Debe coincidir con firma() de check.py */
-function fKey(b){const on=b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length;
- return [b.min_price,b.max_price,b.source||"ambos",(on?b.lang_mode:"off")+":"+(on?[...b.langs].sort().join(","):"")].join("|")}
-function fLabel(f){const [mn,mx,src,lg]=String(f).split("|"),[m,ls]=(lg||"off:").split(":");
+function fKey(b){const on=b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length,ex=(b.exclude||[]).map(t=>String(t).trim().toLowerCase()).sort().join(",");
+ return [b.min_price,b.max_price,b.source||"ambos",(on?b.lang_mode:"off")+":"+(on?[...b.langs].sort().join(","):"")].join("|")+(ex?"|"+ex:"")}
+function fLabel(f){const [mn,mx,src,lg,ex]=String(f).split("|"),[m,ls]=(lg||"off:").split(":");
  const lt=m!="off"&&ls?(m=="solo"?"Solo ":"Sin ")+ls.split(",").map(lname).join(", "):"";
- return mn+"€ – "+(+mx>=1000?"sin límite":mx+"€")+" · "+(SRCN[src]||src)+(lt?" · "+lt:"")}
+ return mn+"€ – "+(+mx>=1000?"sin límite":mx+"€")+" · "+(SRCN[src]||src)+(lt?" · "+lt:"")+(ex?" · sin: "+ex.split(",").join(", "):"")}
 function renderFeed(){const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b])),kk=x=>String(x.kw).toLowerCase(),
   isA=x=>cfgOk&&!byKw.has(kk(x)),arch=feed.filter(isA),live=feed.filter(x=>!isA(x));
  const pool=A?arch:live,kws=[...new Set(pool.map(kk))],nm={};pool.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
@@ -237,16 +247,17 @@ function renderFeed(){const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.to
  $("#fl").innerHTML=A?chip("Todos ("+pool.length+")",!fKw,"fKw='';renderFeed()")+kws.map((k,i)=>chip(esc(nm[k])+" ("+pool.filter(x=>kk(x)==k).length+")",fKw==k,"fKw=kws_["+i+"];renderFeed()")).join("")
   :chip("Todo",!fKw&&!fPl,"fKw='';fPl='';renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
    +kws.map((k,i)=>chip(esc(nm[k]),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("");
- const it=(t,fn)=>`<button class="dg" onclick="closeMenu();${fn}">${t}</button>`;
- const mi=(fKw?it("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(A&&arch.length?it("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?it("🧹 Vaciar todo","clearFeed('all')"):"");
+ const it=(t,fn,nt)=>`<button class="${nt?"nt":"dg"}" onclick="closeMenu();${fn}">${t}</button>`,sd=x=>x.st=="sold"||x.st=="gone",nS=pool.filter(sd).length;
+ const mi=(nS?it((hideSold?"👁 Mostrar":"🙈 Ocultar")+" vendidos ("+nS+")","toggleSold()",1)+it("🧹 Borrar vendidos ("+nS+")","clearFeed('sold')"):"")+(fKw?it("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(A&&arch.length?it("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?it("🧹 Vaciar todo","clearFeed('all')"):"");
  $("#menu").innerHTML=mi;$("#mbtn").classList.toggle("hide",!mi);if(!mi)closeMenu();
- const pin=x=>{const w=x.p!="Vinted",im=safe(x.im),nw=Date.now()/1000-x.t<600,b=byKw.get(kk(x)),
+ const ref=[];window.ref_=ref;
+ const pin=x=>{const w=x.p!="Vinted",im=safe(x.im),vd=sd(x),nw=!vd&&Date.now()/1000-x.t<600,b=byKw.get(kk(x)),n=ref.push(x)-1,
    cs=String(x.lg||"").split(",").filter(Boolean),fl=cs.map(c=>c=="?"?"🌐?":lflag(c)).join(" "),
    lt=fl?" · "+fl:(b&&b.lang_mode&&b.lang_mode!="off"?" · 🌐 sin detectar":"");
-  return`<a class="pin" href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
-  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}</div>
-  <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}${lt}</small></div></a>`};
- const L=pool.filter(x=>(!fKw||kk(x)==fKw)&&(A||!fPl||x.p==fPl)),cur=[],old=new Map();
+  return`<div class="pin${vd?" sd":""}"><a href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
+  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}${x.st=="sold"?'<div class="sdl"><span>VENDIDO</span></div>':x.st=="gone"?'<div class="sdl"><span class="gn">NO DISPONIBLE</span></div>':x.st=="reserved"?'<span class="rs">RESERVADO</span>':""}</div>
+  <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}${lt}</small></div></a><button class="xb" title="Quitar de novedades" aria-label="Quitar de novedades" onclick="delItem(${n})">🗑</button></div>`};
+ const L=pool.filter(x=>(!fKw||kk(x)==fKw)&&(A||!fPl||x.p==fPl)&&!(hideSold&&sd(x))),cur=[],old=new Map();
  for(const x of L){const b=byKw.get(kk(x));
   if(A||!b||!x.f||x.f==fKey(b))cur.push(x);
   else{const k=kk(x)+"\u0001"+x.f;if(!old.has(k))old.set(k,{kw:x.kw,f:x.f,it:[]});old.get(k).it.push(x)}}
@@ -258,31 +269,39 @@ async function saveFeed(items){const b={message:"limpiar novedades [skip ci]",co
  feedSha=(await r.json()).content.sha;return true}
 async function clearFeed(mode){const kw=fKw;if(mode!="all"&&!cfgOk){msg("Espera a que carguen los bots",1);return}
  const t=mode=="all"?["¿Vaciar todas las novedades?","Se borrarán todos los anuncios de Novedades, también los archivados. Tus bots no se tocan.","Vaciar todo"]
+  :mode=="sold"?["¿Borrar los vendidos?","Se quitarán de "+(tab=="arch"?"Archivados":"Novedades")+" los anuncios marcados como vendidos o no disponibles.","Borrar"]
   :mode=="arc"?["¿Vaciar archivados?","Se borrarán los anuncios de los bots que ya no existen.","Vaciar"]
   :cfg.some(b=>b.keywords.toLowerCase()==kw)?["¿Vaciar «"+kw+"»?","Se borrarán todas las novedades de este bot, también las de configuraciones anteriores. El bot sigue activo.","Vaciar"]
   :["¿Vaciar archivados de «"+kw+"»?","Se borrarán las novedades archivadas de este bot borrado.","Vaciar"];
  if(!await ask(t[0],t[1],t[2]))return;
  if(!await loadFeed(true)){msg("Sin conexión",1);return}   /* trae lo último y su sha */
  const has=new Set(cfg.map(b=>b.keywords.toLowerCase())),k=x=>String(x.kw).toLowerCase();
- const keep=mode=="all"?[]:mode=="arc"?feed.filter(x=>has.has(k(x))):feed.filter(x=>k(x)!=kw);
+ const sold=x=>x.st=="sold"||x.st=="gone",keep=mode=="all"?[]:mode=="sold"?feed.filter(x=>!(sold(x)&&(tab=="arch"?!has.has(k(x)):has.has(k(x))))):mode=="arc"?feed.filter(x=>has.has(k(x))):feed.filter(x=>k(x)!=kw);
  if(await saveFeed(keep)){feed=keep;renderFeed();msg("Novedades vaciadas ✓")}}
+function toggleSold(){hideSold=!hideSold;try{localStorage.setItem("wbhs",hideSold?"1":"")}catch(e){}renderFeed()}
+async function delItem(n){const x=(window.ref_||[])[n];if(!x)return;const id=x.id,k=String(x.kw).toLowerCase();
+ if(!await ask("¿Quitar este anuncio?","«"+x.n+"» desaparecerá de tus novedades. El bot no volverá a avisarte de él.","Quitar"))return;
+ if(!await loadFeed(true)){msg("Sin conexión",1);return}   /* trae lo último y su sha */
+ const keep=feed.filter(y=>!(y.id==id&&String(y.kw).toLowerCase()==k));
+ if(await saveFeed(keep)){feed=keep;renderFeed();msg("Anuncio quitado ✓")}}
 function drawL(){const on=LM!="off";$("#lbox").classList.toggle("hide",!on);$("#lhint").classList.toggle("hide",!on);
  $("#lbox").innerHTML=LANGS.map(([c,n])=>`<button type="button" class="${LS.includes(c)?"on":""}" onclick="togL('${c}')">${n}</button>`).join("");
  $("#lhint").textContent=LM=="excluir"?"Se ocultan los anuncios que mencionen estos idiomas en el título o la descripción.":"Se ocultan los que mencionen otros idiomas. Los que no mencionan ninguno se siguen mostrando."}
 function setLM(v){LM=v;document.querySelectorAll("#lseg button").forEach(x=>x.classList.toggle("on",x.dataset.v==v));drawL()}
 function togL(c){LS=LS.includes(c)?LS.filter(x=>x!=c):[...LS,c];drawL()}
 function setSrc(v){$("#src").value=v;document.querySelectorAll("#seg button").forEach(x=>x.classList.toggle("on",x.dataset.v==v))}
+function cleanEx(v){const o=[],seen=new Set();for(let t of String(v||"").split(/[,;\n]+/)){t=t.replace(/\|/g," ").trim().slice(0,40);const k=t.toLowerCase();if(t&&!seen.has(k)){seen.add(k);o.push(t)}}return o.slice(0,30)}
 function add(){const k=$("#kw").value.trim();if(!k){$("#kw").focus();return}
  if(LM!="off"&&!LS.length){msg("Elige al menos un idioma",1);return}
- const d={keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,source:$("#src").value,lang_mode:LM,langs:LM=="off"?[]:[...LS]};
+ const d={keywords:k,min_price:+$("#mn").value||0,max_price:$("#mx").value===""?1000:+$("#mx").value,source:$("#src").value,lang_mode:LM,langs:LM=="off"?[]:[...LS],exclude:cleanEx($("#ex").value)};
  const nid=()=>Math.random().toString(36).slice(2,10);
  if(ed!==null){const b=cfg[ed];if(b.keywords.toLowerCase()!==k.toLowerCase())b.id=nid();Object.assign(b,d);cancelEdit();push("editar bot");return}
  cfg.push({id:nid(),status:"running",...d});cancelEdit();push("nuevo bot")}
-function edit(i){const b=cfg[i];ed=i;$("#kw").value=b.keywords;$("#mn").value=b.min_price;$("#mx").value=b.max_price;setSrc(b.source||"ambos");setLM(b.lang_mode||"off");LS=[...(b.langs||[])];drawL();
+function edit(i){const b=cfg[i];ed=i;$("#kw").value=b.keywords;$("#mn").value=b.min_price;$("#mx").value=b.max_price;setSrc(b.source||"ambos");setLM(b.lang_mode||"off");LS=[...(b.langs||[])];drawL();$("#ex").value=(b.exclude||[]).join(", ");
  $("#ft").textContent="Editando: "+b.keywords;$("#sv").textContent="Guardar cambios";$("#cn").classList.remove("hide");scrollTo({top:0,behavior:"smooth"});$("#kw").focus()}
-function cancelEdit(){ed=null;$("#kw").value="";$("#mn").value=0;$("#mx").value=1000;setSrc("ambos");LS=[];setLM("off");$("#ft").textContent="Nuevo bot";$("#sv").textContent="Crear bot";$("#cn").classList.add("hide")}
+function cancelEdit(){ed=null;$("#kw").value="";$("#mn").value=0;$("#mx").value=1000;setSrc("ambos");LS=[];setLM("off");$("#ex").value="";$("#ft").textContent="Nuevo bot";$("#sv").textContent="Crear bot";$("#cn").classList.add("hide")}
 function tog(i){if(ed!==null)cancelEdit();cfg[i].status=cfg[i].status=="paused"?"running":"paused";push("pausar/reanudar")}
 async function del(i){if(ed!==null)cancelEdit();const b=cfg[i];if(!b)return;if(await ask("¿Borrar este bot?","Se eliminará «"+b.keywords+"» y dejarás de recibir sus avisos. Sus anuncios pasarán a Novedades › Archivados.","Borrar")){const j=cfg.indexOf(b);if(j<0)return;cfg.splice(j,1);push("borrar bot")}}
-document.addEventListener("keydown",e=>{if(e.key=="Enter"){if(!$("#lock").classList.contains("hide"))enter();else if(document.activeElement&&["kw","mn","mx"].includes(document.activeElement.id))add()}});
+document.addEventListener("keydown",e=>{if(e.key=="Enter"){if(!$("#lock").classList.contains("hide"))enter();else if(document.activeElement&&["kw","mn","mx","ex"].includes(document.activeElement.id))add()}});
 showLock();
 </script></body></html>
