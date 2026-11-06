@@ -951,6 +951,23 @@ def estado_de_json(j, vinted=False):
     return "active" if _flag(c, "sold", "is_sold", "reserved", "is_reserved") is not None else None
 
 
+def _ld_disponibilidad(t):
+    """Valores 'availability' de los JSON-LD tipo Product de la ficha (datos del producto principal, no de otros anuncios)."""
+    out = []
+    for m in re.finditer(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', t, re.S | re.I):
+        try:
+            d = json.loads(m.group(1))
+        except ValueError:
+            continue
+        for o in (d if isinstance(d, list) else [d]):
+            if isinstance(o, dict) and "Product" in str(o.get("@type")):
+                of = o.get("offers")
+                for f in (of if isinstance(of, list) else [of]):
+                    if isinstance(f, dict) and f.get("availability"):
+                        out.append(str(f["availability"]).rsplit("/", 1)[-1])
+    return out
+
+
 def _estado_pagina(x, sesion=None):
     """Confirma mirando la ficha pública. Solo un 404/410 de la propia ficha cuenta como 'gone'.
     Si la ficha carga, el anuncio sigue ahí ('active'). No se lee 'vendido' del HTML porque la página
@@ -961,7 +978,10 @@ def _estado_pagina(x, sesion=None):
     if r.status_code in (404, 410):
         return "gone", f"ficha HTTP {r.status_code}"
     if r.status_code == 200:
-        return "active", "ficha HTTP 200"
+        av = _ld_disponibilidad(r.text)
+        if av and av[0] in ("OutOfStock", "SoldOut", "Discontinued"):
+            return "sold", f"ficha HTTP 200, availability={av[0]}"
+        return "active", "ficha HTTP 200" + (f", availability={av[0]}" if av else "")
     return None, f"ficha HTTP {r.status_code}"
 
 
@@ -1281,6 +1301,7 @@ def estado_de(texto):
         except Exception as e:
             st, det = None, f"error: {e}"
         print(f"   ahora: {st}  ({det})")
+        _s = None
         try:
             resp, _s, err = _pedir_api(x)
             if resp is not None and resp.status_code == 200:
@@ -1294,6 +1315,18 @@ def estado_de(texto):
                 print("   API:", err or f"HTTP {resp.status_code}")
         except Exception as e:
             print("   (no se pudo leer el detalle):", e)
+        try:  # qué hay en la ficha pública (para ajustar la detección de vendidos)
+            r = (_s or requests).get(x["u"], headers={"User-Agent": HEADERS["User-Agent"], "Accept": "text/html",
+                                                      "Accept-Language": "es-ES,es;q=0.9"}, timeout=20)
+            t = r.text
+            print(f"   ficha: HTTP {r.status_code}, {len(t)} caracteres, JSON-LD availability={_ld_disponibilidad(t)}")
+            for pat in ("is_closed", "item_closing_action", "Vendido", "SoldOut", "OutOfStock", "is_reserved"):
+                pos = [m.start() for m in re.finditer(re.escape(pat), t)]
+                if pos:
+                    print(f"   · {pat}: {len(pos)} veces. Ej: " + " || ".join(
+                        t[max(0, i - 60):i + 80].replace("\n", " ") for i in pos[:2]))
+        except Exception as e:
+            print("   (no se pudo leer la ficha):", e)
 
 
 if __name__ == "__main__":
