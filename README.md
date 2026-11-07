@@ -7,10 +7,14 @@ Le dices qué buscas (por ejemplo *"layton"*, entre 0 y 25 €) y el bot te avis
 - 💰 Filtro de precio mínimo y máximo.
 - 🌐 Filtro de **idioma**: ver solo los anuncios en un idioma, o excluir idiomas (por ejemplo, no quiero la versión italiana ni la francesa).
 - 🚫 **Palabras excluidas**: ignora los anuncios que contengan las palabras que tú elijas ("solo caja", "réplica"...).
+- 📉 **Bajadas de precio**: si un anuncio que ya viste se abarata, te avisa con el precio anterior y el porcentaje.
+- 🔥 **Chollos**: marca los anuncios nuevos con un precio muy por debajo de la mediana del mercado de esa búsqueda.
+- 📊 **Estadísticas por bot**: precio medio y mediana del mercado *sin límite de precio* y dentro de tu rango.
+- ⭐ **Favoritos**, y **búsqueda y orden** dentro de las novedades.
 - 📱 Panel web (también se instala como app en el móvil) para crear, editar, pausar y borrar bots.
 - ✨ **Novedades**: un muro con foto, precio y plataforma de cada anuncio encontrado, con opción de quitar anuncios a mano.
 - 🗄 Cuando borras un bot, sus anuncios pasan a **Archivados** (no se pierden).
-- 💬 También se maneja desde Telegram: `/bots`, `/nuevo`.
+- 💬 También se maneja desde Telegram: `/bots`, `/nuevo`, `/stats`.
 
 > **Importante:** esto no es un producto oficial. Usa las mismas direcciones que usan las webs de Wallapop y Vinted,
 > que pueden cambiar o limitar el acceso sin avisar. Es para **uso personal**. Úsalo con cabeza
@@ -218,10 +222,16 @@ Comandos útiles: `sudo systemctl restart wallapop` (tras cambiar algo), `sudo s
 
 ```bash
 cd ~/wallapop-alertas
-git pull --rebase --autostash
+sudo systemctl stop wallapop              # al parar, el bot sube su estado a GitHub
+cp data/state.json ~/state.backup.json    # copia de seguridad por si acaso
+git checkout -- data/state.json           # descarta la copia local: ya está en GitHub
+git pull --rebase
 ./venv/bin/pip install -r requirements.txt
-sudo systemctl restart wallapop
+sudo systemctl start wallapop
 ```
+
+> Si el `git pull` se queja de `data/state.json`, restáuralo con `cp ~/state.backup.json data/state.json` después de hacer
+> `git reset --hard origin/main`.
 
 > **Usa solo UNA de las dos opciones a la vez.** Si ejecutas el bot en tu Raspberry y además tienes activo el flujo
 > de GitHub Actions, recibirás los avisos duplicados. Si te pasas a la opción B, desactiva el flujo
@@ -294,12 +304,42 @@ La pestaña **Novedades** muestra los anuncios que ha ido encontrando el bot.
   pero separados en una sección *"bot anterior"* con la configuración que tenía.
 - **Archivados**: al borrar un bot, sus anuncios van aquí, agrupados por bot. Si más tarde creas otro bot con el mismo nombre, vuelven a Novedades.
 
+### Bajadas de precio y chollos
+
+Cuando el bot ve un anuncio por segunda vez lo reconoce por su **enlace**, así que sabe si ha cambiado de precio.
+
+- **📉 Bajada de precio**: te llega un aviso aparte con el precio anterior (`18,00€ (antes 25,00€, −28%)`). Cuenta si baja al menos
+  **1 €** y **5 %** (así no te avisa por céntimos). En el panel la tarjeta muestra el precio antiguo tachado y una etiqueta azul, y
+  sustituye a la tarjeta anterior del mismo anuncio. Si un anuncio **sube** de precio ya no se cuenta como novedad.
+- **🔥 Chollo**: un anuncio *nuevo* cuyo precio está al menos un **40 %** por debajo de la **mediana** del mercado de esa búsqueda
+  (la mediana es el precio "del medio"; no la distorsionan unos pocos anuncios carísimos o de 1 €). Llega en un mensaje aparte
+  (🔥 *POSIBLES CHOLLOS*) y con etiqueta naranja en el panel. Hace falta tener estadísticas del bot con 8 anuncios o más, y se ignoran
+  los anuncios de menos de 0,50 €. Los chips **🔥 Chollos** y **📉 Bajadas** del panel filtran solo esos anuncios.
+
+### Estadísticas por bot
+
+Cada bot muestra en el panel (pestaña *Mis bots*) y con `/stats` en Telegram:
+
+- 📊 **Mercado**: media, mediana, mínimo y máximo de la búsqueda **sin límite de precio**.
+- 🎯 **Tu rango**: lo mismo pero solo con los anuncios que caen dentro de tu mínimo y máximo.
+
+Se calculan con una muestra de los anuncios **más recientes** de cada plataforma (unas decenas), aplicando tu filtro de idioma y tus palabras
+excluidas, y se refrescan cada 6 horas (o enseguida si editas el bot). Son una orientación del precio al que se publica, no un precio de venta real.
+
+### Favoritos, búsqueda y orden
+
+- **☆ / ★** en cada tarjeta: guarda el anuncio en la pestaña **⭐ Favoritos**. Se guardan aparte (`data/favorites.json`), así que no se
+  pierden al vaciar las novedades ni al borrar el bot.
+- **Buscador** (sobre las tarjetas): filtra por palabras del título, sin importar mayúsculas ni acentos.
+- **Orden**: más recientes, precio de menor a mayor, de mayor a menor, o **🔥 mayor descuento** (chollos y bajadas primero).
+
 ### Telegram
 
 | Comando | Qué hace |
 |---|---|
 | `/start`, `/ayuda` | Muestra la ayuda. |
 | `/bots` | Lista tus bots con botones para pausar, reanudar o borrar. |
+| `/stats` | Muestra el precio medio y la mediana de cada bot (mercado y tu rango). |
 | `/nuevo mario party 0 30` | Crea un bot (palabras, precio mínimo y máximo). `/nuevo jamboree 25` pone solo el máximo. |
 
 Los filtros de idioma y las palabras excluidas se configuran desde el panel.
@@ -352,6 +392,10 @@ Se definen como *secrets* (Actions) o en `~/wallapop.env` (opción B).
 | `CHECK_INTERVAL` | | `10` | Segundos entre comprobaciones. Recomendado: `30` o más. |
 | `WALLAPOP_LAT`, `WALLAPOP_LON` | | Madrid | Coordenadas de referencia de la búsqueda en Wallapop. |
 | `VINTED_TLD` | | `es` | Dominio de Vinted (`es`, `fr`, `it`, `de`...). |
+| `CHOLLO_PCT` | | `40` | Porcentaje por debajo de la mediana para marcar un chollo. `0` lo desactiva. |
+| `BAJADA_MIN_EUR`, `BAJADA_MIN_PCT` | | `1`, `5` | Lo mínimo que tiene que bajar un anuncio (en € y en %) para avisar de la bajada. |
+| `STATS_EVERY` | | `21600` | Segundos entre recálculos de las estadísticas de cada bot (6 h). |
+| `STATE_PUSH_EVERY` | | `900` | Segundos entre copias de `state.json` al repo (también se copia al parar). |
 | `AVISOS_ESTADO` | | `0` | `1` = avisos por Telegram al arrancar, detenerse y recuperar la conexión. |
 | `HEALTHCHECK_URL` | | | URL de latido (p. ej. healthchecks.io) para enterarte si la Raspberry se apaga. |
 
@@ -379,8 +423,9 @@ Es normal: significa que Wallapop no devolvió resultados para esa búsqueda en 
 Wallapop o Vinted están rechazando las peticiones (límite, bloqueo de IP o cambio de formato). El bot avisa una sola vez y lo vuelve a intentar;
 cuando se recupera, te avisa de que vuelve a responder. Si pasa siempre desde un servidor en la nube, prueba desde tu casa.
 
-**Aparece `Aviso git push` o `Aviso git pull` en el registro (opción B).**
-Es inofensivo: el bot intenta subir `state.json` y tu máquina no tiene credenciales de escritura de git. El estado se guarda igualmente en local.
+**Aparece `Aviso al subir el estado a GitHub` en el registro.**
+El bot copia `data/state.json` al repo por la API de GitHub (ya no usa `git push`, que fallaba sin credenciales de git). Si el aviso se repite,
+revisa que tu `GITHUB_TOKEN` tenga *Contents: Read and write* y que `GITHUB_REPOSITORY` sea correcto. Mientras tanto el estado sigue guardándose en local.
 
 **Los cambios del panel no se ven.**
 GitHub Pages tarda un par de minutos en publicar. Si usas la app instalada en el móvil, ciérrala del todo y vuelve a abrirla para saltarte la caché.
@@ -412,7 +457,9 @@ Revisa *Settings › Billing* de tu cuenta. Si no encuentras la causa, escribe a
 ├── data/
 │   ├── config.json             # tus bots (lo escriben el panel y Telegram)
 │   ├── results.json            # el muro de Novedades (lo escriben el bot y el panel)
-│   └── state.json              # anuncios ya avisados y estado de Telegram (solo el bot)
+│   ├── state.json              # anuncios ya avisados, precios recordados y estado de Telegram (solo el bot)
+│   ├── stats.json              # estadísticas de precios por bot (se crea solo; lo escribe el bot)
+│   └── favorites.json          # tus favoritos (se crea solo; lo escribe el panel)
 ├── docs/                       # el panel web que publica GitHub Pages
 │   ├── index.html
 │   ├── manifest.webmanifest
