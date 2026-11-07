@@ -8,8 +8,8 @@ Le dices qué buscas (por ejemplo *"layton"*, entre 0 y 25 €) y el bot te avis
 - 🌐 Filtro de **idioma**: ver solo los anuncios en un idioma, o excluir idiomas (por ejemplo, no quiero la versión italiana ni la francesa).
 - 🚫 **Palabras excluidas**: ignora los anuncios que contengan las palabras que tú elijas ("solo caja", "réplica"...).
 - 📉 **Bajadas de precio**: si un anuncio que ya viste se abarata, te avisa con el precio anterior y el porcentaje.
-- 🔥 **Chollos**: marca los anuncios nuevos con un precio muy por debajo de la mediana del mercado de esa búsqueda.
-- 📊 **Estadísticas por bot**: precio medio y mediana del mercado *sin límite de precio* y dentro de tu rango.
+- 🔥 **Chollos**: marca los anuncios nuevos con un precio muy por debajo de la mediana de los de tu rango de precio.
+- 📊 **Pestaña de estadísticas con gráficos**: precio medio y mediana del mercado *sin límite de precio* y dentro de tu rango, distribución, evolución y actividad.
 - ⭐ **Favoritos**, y **búsqueda y orden** dentro de las novedades.
 - 📱 Panel web (también se instala como app en el móvil) para crear, editar, pausar y borrar bots.
 - ✨ **Novedades**: un muro con foto, precio y plataforma de cada anuncio encontrado, con opción de quitar anuncios a mano.
@@ -311,20 +311,31 @@ Cuando el bot ve un anuncio por segunda vez lo reconoce por su **enlace**, así 
 - **📉 Bajada de precio**: te llega un aviso aparte con el precio anterior (`18,00€ (antes 25,00€, −28%)`). Cuenta si baja al menos
   **1 €** y **5 %** (así no te avisa por céntimos). En el panel la tarjeta muestra el precio antiguo tachado y una etiqueta azul, y
   sustituye a la tarjeta anterior del mismo anuncio. Si un anuncio **sube** de precio ya no se cuenta como novedad.
-- **🔥 Chollo**: un anuncio *nuevo* cuyo precio está al menos un **40 %** por debajo de la **mediana** del mercado de esa búsqueda
-  (la mediana es el precio "del medio"; no la distorsionan unos pocos anuncios carísimos o de 1 €). Llega en un mensaje aparte
-  (🔥 *POSIBLES CHOLLOS*) y con etiqueta naranja en el panel. Hace falta tener estadísticas del bot con 8 anuncios o más, y se ignoran
-  los anuncios de menos de 0,50 €. Los chips **🔥 Chollos** y **📉 Bajadas** del panel filtran solo esos anuncios.
+- **🔥 Chollo**: un anuncio *nuevo* cuyo precio está al menos un **40 %** por debajo de la **mediana de los anuncios dentro de tu rango de
+  precio** (la mediana es el precio "del medio"; no la distorsionan unos pocos anuncios carísimos o de 1 €). Se compara con tu rango y no con
+  todo el mercado, porque es lo que de verdad te interesa. Llega en un mensaje aparte (🔥 *POSIBLES CHOLLOS*) y con etiqueta naranja en el panel.
+  Hace falta que el bot tenga estadísticas con 8 anuncios o más dentro de tu rango, y se ignoran los anuncios de menos de 0,50 €.
+  Los chips **🔥 Chollos** y **📉 Bajadas** del panel filtran solo esos anuncios.
 
-### Estadísticas por bot
+### 📊 Pestaña Estadísticas
 
-Cada bot muestra en el panel (pestaña *Mis bots*) y con `/stats` en Telegram:
+Una pestaña propia del panel, con gráficos. Arriba eliges **Resumen** o un bot concreto.
 
-- 📊 **Mercado**: media, mediana, mínimo y máximo de la búsqueda **sin límite de precio**.
-- 🎯 **Tu rango**: lo mismo pero solo con los anuncios que caen dentro de tu mínimo y máximo.
+**Resumen** (todos tus bots):
+- Totales: anuncios guardados, 🔥 chollos, 📉 bajadas de precio y ⭐ favoritos.
+- Anuncios encontrados por día (últimos 14 días), reparto Wallapop / Vinted y anuncios por bot.
+- Mediana de precio de cada bot y una tabla comparando el **mercado sin límite de precio** con **tu rango**.
 
-Se calculan con una muestra de los anuncios **más recientes** de cada plataforma (unas decenas), aplicando tu filtro de idioma y tus palabras
-excluidas, y se refrescan cada 6 horas (o enseguida si editas el bot). Son una orientación del precio al que se publica, no un precio de venta real.
+**Un bot concreto**:
+- Mediana y media del mercado (sin límite de precio), mediana dentro de tu rango y tamaño de la muestra.
+- **Distribución de precios**: cuántos anuncios hay a cada precio, con tu rango resaltado y la mediana marcada.
+- **Evolución del precio**: mediana y media a lo largo del tiempo (el bot añade un punto cada 6 h).
+- Mediana en Wallapop frente a Vinted, y anuncios encontrados por día.
+
+Los datos del mercado se calculan con una muestra de los anuncios **más recientes** de cada plataforma (unas decenas), aplicando tu filtro de idioma
+y tus palabras excluidas, y se refrescan cada 6 horas (o enseguida si editas el bot; la gráfica de evolución solo se reinicia si cambias la búsqueda,
+las plataformas, el idioma o las exclusiones, no el rango de precio). Son una orientación del precio al que se publica, no de a cuánto se vende.
+Las gráficas de actividad usan las novedades guardadas en el panel. En Telegram, `/stats` da un resumen rápido en texto.
 
 ### Favoritos, búsqueda y orden
 
@@ -458,7 +469,7 @@ Revisa *Settings › Billing* de tu cuenta. Si no encuentras la causa, escribe a
 │   ├── config.json             # tus bots (lo escriben el panel y Telegram)
 │   ├── results.json            # el muro de Novedades (lo escriben el bot y el panel)
 │   ├── state.json              # anuncios ya avisados, precios recordados y estado de Telegram (solo el bot)
-│   ├── stats.json              # estadísticas de precios por bot (se crea solo; lo escribe el bot)
+│   ├── stats.json              # estadísticas de precios por bot, con su historial (se crea solo; lo escribe el bot)
 │   └── favorites.json          # tus favoritos (se crea solo; lo escribe el panel)
 ├── docs/                       # el panel web que publica GitHub Pages
 │   ├── index.html
