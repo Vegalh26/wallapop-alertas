@@ -683,8 +683,8 @@ def buscar_vinted(keywords, min_price, max_price):
 # ---------- Precios: bajadas, chollos y estadísticas ----------
 # · Bajada: un anuncio que ya conocíamos (se identifica por su enlace) vuelve a salir más barato.
 #   Cuenta si baja al menos BAJADA_MIN_EUR € y BAJADA_MIN_PCT %. Si SUBE de precio ya no se avisa como novedad.
-# · Chollo: un anuncio nuevo con un precio CHOLLO_PCT % (o más) por debajo de la MEDIANA del mercado de esa
-#   búsqueda sin límite de precio (ver estadísticas). CHOLLO_PCT=0 lo desactiva.
+# · Chollo: un anuncio nuevo con un precio CHOLLO_PCT % (o más) por debajo de la MEDIANA de los anuncios de esa
+#   búsqueda DENTRO DE TU RANGO de precio (ver estadísticas). CHOLLO_PCT=0 lo desactiva.
 # · Estadísticas: cada STATS_EVERY segundos se recalcula, para un bot por vuelta, el precio del mercado de su
 #   búsqueda SIN límite de precio y dentro de tu rango. Se guardan en data/stats.json (las muestra el panel).
 BAJADA_MIN_PCT = float(os.environ.get("BAJADA_MIN_PCT", "5") or 5)
@@ -722,13 +722,38 @@ def sig_stats(b):
     return b["keywords"].lower() + "|" + firma(b)
 
 
+def sig_mercado(b):
+    """Lo que define el MERCADO de un bot (sin el rango de precio): si cambia, la serie histórica se reinicia."""
+    return "|".join([b["keywords"].lower(), b.get("source", "ambos"),
+                     b.get("lang_mode", "off") + ":" + ",".join(sorted(b.get("langs") or [])),
+                     ",".join(sorted(w.lower() for w in (b.get("exclude") or [])))])
+
+
+def _hist(precios):
+    """Histograma de precios para el panel: barras de ancho 'bonito' hasta el percentil 95; lo más caro va a 'mas'."""
+    p = sorted(x for x in precios if x > 0)
+    if len(p) < 3:
+        return None
+    tope = p[min(len(p) - 1, int(len(p) * 0.95))]
+    ancho = next((a for a in (0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000) if a >= tope / 10), 1000)
+    n = int(tope // ancho) + 1
+    c, mas = [0] * n, 0
+    for x in p:
+        i = int(x // ancho)
+        if i >= n:
+            mas += 1
+        else:
+            c[i] += 1
+    return {"w": ancho, "c": c, "mas": mas}
+
+
 def marcar_chollo(b, r):
     if CHOLLO_PCT <= 0:
         return
     s = STATS.get(b["id"])
     if not s or s.get("sig") != sig_stats(b):
         return
-    t = s.get("todo") or {}
+    t = s.get("rango") or {}  # la mediana de lo que hay dentro de TU rango de precio, no de todo el mercado
     med = t.get("mediana")
     if not med or t.get("n", 0) < CHOLLO_MIN_N or r["precio"] < 0.5:
         return
@@ -768,6 +793,7 @@ def actualizar_stats(bots):
     ahora_t = time.time()
     pend = [b for b in bots if b["status"] == "running"
             and (STATS.get(b["id"], {}).get("sig") != sig_stats(b)
+                 or "serie" not in STATS[b["id"]]  # calculadas con una versión anterior: sin datos para los gráficos
                  or ahora_t - STATS[b["id"]].get("t", 0) >= STATS_EVERY)
             and ahora_t - _stats_ctl["fallo"].get(b["id"], 0) >= 600]
     if not pend:
@@ -785,12 +811,25 @@ def actualizar_stats(bots):
     for r in muestras:
         r["lg"] = sorted(idiomas_en(r["nombre"], r.get("desc", "")))
     muestras = [r for r in muestras if pasa_idioma(b, r) and pasa_exclusion(b, r)]
+    precios = [r["precio"] for r in muestras]
+    todo = _resumen(precios)
+    antes = STATS.get(b["id"], {})
+    msig = sig_mercado(b)
+    serie = antes.get("serie", []) if antes.get("msig") == msig else []  # evolución en el tiempo
+    if todo:
+        serie = (serie + [[int(ahora_t), todo["mediana"], todo["media"], todo["n"]]])[-180:]
+    plat = {}
+    for nombre in ("Wallapop", "Vinted"):
+        sub = _resumen([r["precio"] for r in muestras if r.get("plat") == nombre])
+        if sub:
+            plat[nombre] = {k: sub[k] for k in ("n", "media", "mediana")}
     STATS[b["id"]] = {
-        "kw": b["keywords"], "sig": sig_stats(b), "t": int(ahora_t),
-        "todo": _resumen([r["precio"] for r in muestras]),
+        "kw": b["keywords"], "sig": sig_stats(b), "msig": msig, "t": int(ahora_t),
+        "todo": todo,
         "rango": _resumen([r["precio"] for r in muestras if b["min_price"] <= r["precio"] <= b["max_price"]]),
+        "hist": _hist(precios), "plat": plat, "serie": serie,
     }
-    print(f"[{b['keywords']}] estadísticas: {STATS[b['id']]['todo']}")
+    print(f"[{b['keywords']}] estadísticas: {todo} (serie: {len(serie)} puntos)")
     guardar_stats(bots)
 
 
@@ -814,7 +853,7 @@ def bloque(i, r, con_idioma=False):
     pr = f"{r['precio']:.2f}€"
     if r.get("antes"):
         pr += f" (antes {r['antes']:.2f}€, −{round((1 - r['precio'] / r['antes']) * 100)}%)"
-    ch = f"\n🔥 {r['chollo']}% por debajo de la mediana ({r['mediana']:.0f}€)" if r.get("chollo") else ""
+    ch = f"\n🔥 {r['chollo']}% por debajo de la mediana de tu rango ({r['mediana']:.0f}€)" if r.get("chollo") else ""
     return f"{i}. {ic} · 💰 {pr}\n📝 {esc(r['nombre'])}{ch}{idi}\n🔗 {r['enlace']}\n\n"
 
 
