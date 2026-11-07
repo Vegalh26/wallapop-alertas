@@ -44,7 +44,7 @@ a{color:var(--mut);font-size:13px}
 #m{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#1d2228;color:#fff;padding:11px 18px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;max-width:90vw;z-index:9;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 #m.show{opacity:1;transform:translate(-50%,0)}#m.e{background:var(--rd)}
 main.wide{max-width:1100px}
-.tabs{grid-template-columns:repeat(4,1fr);margin-bottom:14px}.tabs button{min-height:44px;font-size:12px;padding:0 2px}
+.tabs{grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:14px}.tabs button{min-height:52px;font-size:11px;padding:4px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.15}.tabs button i{font-style:normal;font-size:18px}.tabs .l{display:none}
 .fl{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.fl::-webkit-scrollbar{display:none}
 .fl button{min-height:36px;padding:0 14px;border-radius:99px;font-size:13px;white-space:nowrap;background:var(--card);color:var(--mut);border:1px solid var(--bd);box-shadow:none}
 .fl button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
@@ -81,7 +81,7 @@ main.wide{max-width:1100px}
  #app.hide{display:none!important}
  .side{position:sticky;top:28px;background:var(--card);border:1px solid var(--bd);border-radius:22px;padding:20px;box-shadow:var(--sh)}
  .side .top{flex-wrap:wrap}.side .top .ic{width:100%;margin-top:6px}
- .side .tabs{grid-template-columns:1fr;margin-bottom:16px}.side .tabs button{text-align:left;padding:0 16px;min-height:48px;font-size:15px}
+ .side .tabs{grid-template-columns:1fr;margin-bottom:16px}.side .tabs button{text-align:left;padding:0 16px;min-height:48px;font-size:15px;flex-direction:row;justify-content:flex-start;gap:10px}.side .tabs .s{display:none}.side .tabs .l{display:inline}
  #app.f .stats{display:grid}
  .stat b{font-size:22px}
  #tabBots{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start}
@@ -111,6 +111,14 @@ main.wide{max-width:1100px}
 .tg{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}.tg .nw{position:static}
 .cho,.baj{border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;color:#fff}.cho{background:#f97316}.baj{background:#2563eb}
 .pr s{opacity:.65;font-weight:500;margin-left:5px;font-size:11px}
+.kg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:0 0 14px}@media(min-width:760px){.kg{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;box-shadow:var(--sh)}.kpi b{display:block;font-size:22px;line-height:1.2}.kpi span{font-size:12px;color:var(--mut)}
+.cg{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px}@media(min-width:900px){.cg{grid-template-columns:1fr 1fr}}
+.cc{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px 14px 12px;box-shadow:var(--sh);min-width:0}.cc h3{margin:0 0 2px;font-size:15px}.cc>p{margin:0 0 10px;color:var(--mut);font-size:12.5px}
+.cc svg{width:100%;height:auto;display:block;color:var(--tx)}.cc svg text{fill:var(--mut);font-size:10px;font-family:inherit}
+.leg{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12px;color:var(--mut)}.leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.tw{overflow-x:auto}.tbl{width:100%;border-collapse:collapse;font-size:13px}.tbl th,.tbl td{padding:8px 6px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap}.tbl th:first-child,.tbl td:first-child{text-align:left}.tbl th{color:var(--mut);font-weight:600;font-size:11.5px}.tbl tr:last-child td{border-bottom:0}
+.nodata{padding:18px 6px;text-align:center;color:var(--mut);font-size:13px}
 .srow{display:flex;gap:8px;margin:0 0 12px}.srow input{flex:1 1 auto;min-width:0}
 .srow select{flex:0 1 auto;max-width:46%;min-height:48px;padding:0 10px;border:1.5px solid var(--bd);border-radius:12px;background:var(--soft);color:var(--tx);font:inherit}
 .st{font-size:12.5px;color:var(--mut);line-height:1.55;margin:0 0 12px;padding:10px 12px;background:var(--soft);border-radius:12px}.st b{color:var(--tx)}.st small{font-size:11.5px}
@@ -136,7 +144,7 @@ main.wide{max-width:1100px}
 <section id="app" class="hide">
 <aside class="side">
  <div class="top"><div class="logo">🤖</div><div class="tt"><h1>Wallapop Bots</h1><small>Wallapop + Vinted</small></div><button class="g ic" onclick="lock()">🔒 Salir</button></div>
- <div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')">🤖 Mis bots</button><button id="tb2" onclick="setTab('feed')">✨ Novedades</button><button id="tb3" onclick="setTab('arch')">🗄 Archivo</button><button id="tb4" onclick="setTab('fav')">⭐ Favoritos</button></div>
+ <div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')"><i>🤖</i>Mis bots</button><button id="tb2" onclick="setTab('feed')"><i>✨</i>Novedades</button><button id="tb3" onclick="setTab('arch')"><i>🗄</i>Archivo</button><button id="tb4" onclick="setTab('fav')"><i>⭐</i>Favoritos</button><button id="tb5" onclick="setTab('stats')"><i>📊</i><span class="s">Stats</span><span class="l">Estadísticas</span></button></div>
  <div class="stats"><div class="stat"><b id="s1">0</b><span>Activos</span></div><div class="stat"><b id="s2">0</b><span>Pausados</span></div><div class="stat"><b id="s3">0</b><span>Total</span></div></div>
 </aside>
 <div class="content">
@@ -155,6 +163,7 @@ main.wide{max-width:1100px}
    <p class="foot" style="text-align:left;margin:12px 0 0">Máx 1000 = sin límite. Los cambios se aplican en segundos.</p></div>
   <div id="list"></div>
  </div>
+ <div id="tabStats" class="hide"><div class="frow"><div class="fl" id="sfl"></div></div><div id="statsBody"></div></div>
  <div id="tabFeed" class="hide"><div class="frow"><div class="fl" id="fl"></div><div class="mw"><button class="g" id="mbtn" onclick="toggleMenu()" aria-label="Más opciones" title="Más opciones">⋯</button><div class="menu hide" id="menu"></div></div></div><div class="srow"><input id="q" type="search" placeholder="🔎 Buscar en los anuncios…" autocomplete="off" autocapitalize="off" oninput="qIn(this.value)"><select id="so" onchange="soCh(this.value)" aria-label="Ordenar"><option value="new">Más recientes</option><option value="pa">Precio: de menor a mayor</option><option value="pd">Precio: de mayor a menor</option><option value="ch">🔥 Mayor descuento</option></select></div><div class="grid" id="grid"></div><div id="old"></div></div>
  <p class="foot">Se bloquea solo tras 2 h sin usar</p>
 </div>
@@ -215,7 +224,7 @@ async function load(){cancelEdit();msg("Cargando…");
  const r=await fetch(api(),{headers:hd(),cache:"no-store"});
  if(r.status==404){cfg=[];sha=null}else if(!r.ok){msg("Error "+r.status+" al leer el repo",1);return}
  else{const j=await r.json();sha=j.sha;cfg=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))}
- cfgOk=true;render();msg("");loadStats();if(tab!="bots")loadFeed(true)}
+ cfgOk=true;render();msg("");if(tab!="bots")loadFeed(true)}
 async function push(t){const b={message:t,content:btoa(unescape(encodeURIComponent(JSON.stringify(cfg,null,2))))};if(sha)b.sha=sha;
  const r=await fetch(api(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
  if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await load();return}
@@ -224,20 +233,14 @@ function render(){const a=cfg.filter(b=>b.status!="paused").length;$("#s1").text
  $("#list").innerHTML=cfg.length?cfg.map((b,i)=>{const s=b.source||"ambos",p=b.status=="paused";
  return`<div class="card"><div class="bhead"><b>${esc(b.keywords)}</b><span class="pill ${p?"off":"on"}">${p?"⏸ Pausado":"● Activo"}</span></div>
  <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip cw">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip cv">🟣 Vinted</span>':""}${b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length?`<span class="chip">🌐 ${b.lang_mode=="solo"?"Solo":"Sin"} ${b.langs.map(c=>(LANGS.find(l=>l[0]==c)||["",c])[1].replace(/^\S+\s/,"")).join(", ")}</span>`:""}${(b.exclude||[]).length?`<span class="chip">🚫 ${esc(b.exclude.slice(0,3).join(", "))}${b.exclude.length>3?" +"+(b.exclude.length-3):""}</span>`:""}</div>
- ${stBlock(b)}<div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${p?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`}).join("")
+ <div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${p?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`}).join("")
  :'<div class="card empty"><div class="big">🔍</div><b>Aún no tienes bots</b><br>Crea el primero arriba y te avisaré por Telegram.</div>'}
 const apiF=()=>`https://api.github.com/repos/${REPO}/contents/data/results.json`;
 const safe=u=>/^https:\/\//.test(u||"")?u:"";
 const apiD=n=>`https://api.github.com/repos/${REPO}/contents/data/${n}.json`,nrm=t=>String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
 const rd=j=>JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))));
 /* ---- estadísticas por bot (las calcula el bot y las guarda en data/stats.json) ---- */
-async function loadStats(){try{const r=await fetch(apiD("stats"),{headers:hd(),cache:"no-store"});stats=r.ok?((rd(await r.json())||{}).bots||{}):{}}catch(e){}render()}
-const m0=v=>Math.round(+v)+"€";
-function stBlock(b){const s=stats[b.id];
- if(!s)return'<div class="st">📊 Estadísticas: se calculan en unos minutos…</div>';
- const f=r=>r?`media <b>${m0(r.media)}</b> · mediana <b>${m0(r.mediana)}</b> · de ${m0(r.min)} a ${m0(r.max)} (${r.n} anuncios)`:"sin datos";
- const sin=b.max_price>=1000&&!(b.min_price>0);
- return`<div class="st">📊 <b>Mercado</b> (sin límite de precio): ${f(s.todo)}${sin?"":`<br>🎯 <b>Tu rango</b> (${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}): ${f(s.rango)}`}<br><small>Actualizado ${ago(s.t)}</small></div>`}
+async function loadStats(){try{const r=await fetch(apiD("stats"),{headers:hd(),cache:"no-store"});stats=r.ok?((rd(await r.json())||{}).bots||{}):{}}catch(e){}if(tab=="stats")renderStats()}
 /* ---- favoritos (data/favorites.json: se guardan aparte para que no se pierdan al vaciar novedades) ---- */
 async function loadFavs(silent){try{const r=await fetch(apiD("favorites"),{headers:hd(),cache:"no-store"});
  if(r.status==404){favs=[];favSha=null}else if(!r.ok){if(!silent)msg("Error "+r.status+" al leer favoritos",1);return}
@@ -251,6 +254,67 @@ async function toggleFav(n){const x=(window.ref_||[])[n];if(!x||!x.u)return;
  if(!await loadFavs(true)){msg("Sin conexión",1);return}   /* trae lo último y su sha */
  const ya=favs.some(f=>f.u==x.u),next=ya?favs.filter(f=>f.u!=x.u):[{...x,fav:Math.floor(Date.now()/1000)},...favs].slice(0,500);
  if(await saveFavs(next)){favs=next;renderFeed();msg(ya?"Quitado de favoritos":"⭐ Guardado en favoritos")}}
+/* ================= Pestaña Estadísticas (gráficos SVG, sin librerías) ================= */
+let sBot="";
+const dm=t=>{const d=new Date(t*1000);return d.getDate()+"/"+(d.getMonth()+1)},eur=v=>(+v).toFixed(2).replace(/\.00$/,"")+"€",m0=v=>Math.round(+v)+"€",GR='#9aa4b2" fill-opacity=".55';
+function svgBars(vals,labels,color){const W=320,H=150,ml=6,mr=6,mt=16,mb=22,n=vals.length,mx=Math.max(1,...vals),bw=(W-ml-mr)/n;let o=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+ vals.forEach((v,i)=>{const h=(H-mt-mb)*v/mx,x=ml+i*bw+bw*.15,y=H-mb-h;o+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw*.7).toFixed(1)}" height="${Math.max(h,v?1.5:0).toFixed(1)}" rx="3" fill="${color}"/>`;
+  if(v)o+=`<text x="${(x+bw*.35).toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="middle">${v}</text>`;
+  if(n<=8||i%2==(n-1)%2)o+=`<text x="${(x+bw*.35).toFixed(1)}" y="${H-7}" text-anchor="middle">${esc(labels[i])}</text>`});return o+"</svg>"}
+function svgH(items,fmt){const W=320,rh=28,ml=100,mr=46,H=items.length*rh+4,mx=Math.max(1,...items.map(i=>i.v));let o=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+ items.forEach((it,i)=>{const y=i*rh+2,w=(W-ml-mr)*it.v/mx,l=it.l.length>16?it.l.slice(0,15)+"…":it.l;
+  o+=`<text x="${ml-6}" y="${y+17}" text-anchor="end">${esc(l)}</text><rect x="${ml}" y="${y+5}" width="${Math.max(w,2).toFixed(1)}" height="${rh-11}" rx="4" fill="${it.c}"/><text x="${(ml+w+5).toFixed(1)}" y="${y+17}">${fmt?fmt(it.v):it.v}</text>`});return o+"</svg>"}
+function svgHist(h,mn,mx,med){const W=320,H=165,ml=8,mr=8,mt=20,mb=24,c=h.c.concat(h.mas?[h.mas]:[]),n=c.length,mxc=Math.max(1,...c),bw=(W-ml-mr)/n,nb=n-(h.mas?1:0);let o=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+ c.forEach((v,i)=>{const lo=i*h.w,hi=lo+h.w,ov=h.mas&&i==n-1,dentro=!ov&&hi>mn&&lo<=mx,ht=(H-mt-mb)*v/mxc,x=ml+i*bw,y=H-mb-ht;
+  o+=`<rect x="${(x+1).toFixed(1)}" y="${y.toFixed(1)}" width="${(bw-2).toFixed(1)}" height="${Math.max(ht,v?1.5:0).toFixed(1)}" rx="2" fill="${dentro?"var(--ac)":GR}"/>`;
+  if(v)o+=`<text x="${(x+bw/2).toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="middle">${v}</text>`});
+ const st=Math.ceil(n/6);for(let i=0;i<n;i+=st)o+=`<text x="${(ml+i*bw).toFixed(1)}" y="${H-8}">${i==n-1&&h.mas?eur(nb*h.w)+"+":eur(i*h.w)}</text>`;
+ if(med>=0&&med<=nb*h.w){const x=ml+med/h.w*bw;o+=`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${mt-6}" y2="${H-mb}" stroke="var(--rd)" stroke-width="1.6" stroke-dasharray="4 3"/><text x="${Math.min(x,W-84).toFixed(1)}" y="10" style="fill:var(--rd);font-weight:700">mediana ${eur(med)}</text>`}
+ return o+"</svg>"}
+function svgLine(lines){const W=320,H=155,ml=36,mr=10,mt=12,mb=22,all=lines.flatMap(l=>l.pts),t0=Math.min(...all.map(p=>p[0])),t1=Math.max(...all.map(p=>p[0]));let lo=Math.min(...all.map(p=>p[1])),hi=Math.max(...all.map(p=>p[1]));
+ if(hi==lo){hi+=1;lo=Math.max(0,lo-1)}const pd=(hi-lo)*.15;lo=Math.max(0,lo-pd);hi+=pd;
+ const X=t=>ml+(t1==t0?(W-ml-mr)/2:(t-t0)/(t1-t0)*(W-ml-mr)),Y=v=>H-mb-(v-lo)/(hi-lo)*(H-mt-mb);let o=`<svg viewBox="0 0 ${W} ${H}" role="img">`;
+ [lo,(lo+hi)/2,hi].forEach(v=>o+=`<line x1="${ml}" x2="${W-mr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="currentColor" stroke-opacity=".12"/><text x="${ml-5}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end">${m0(v)}</text>`);
+ lines.forEach(l=>{o+=`<polyline points="${l.pts.map(p=>X(p[0]).toFixed(1)+","+Y(p[1]).toFixed(1)).join(" ")}" fill="none" stroke="${l.c}" stroke-width="2" stroke-linejoin="round"${l.d?' stroke-dasharray="5 4"':""}/>`;
+  if(l.pts.length<=40)l.pts.forEach(p=>o+=`<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="2.6" fill="${l.c}"/>`)});
+ return o+`<text x="${ml}" y="${H-6}">${dm(t0)}</text><text x="${W-mr}" y="${H-6}" text-anchor="end">${dm(t1)}</text></svg>`}
+function svgDonut(parts){const tot=parts.reduce((a,p)=>a+p.v,0)||1,R=42,C=2*Math.PI*R;let off=0,o=`<svg viewBox="0 0 120 120" style="max-width:190px;margin:0 auto" role="img"><g transform="rotate(-90 60 60)">`;
+ parts.forEach(p=>{const len=C*p.v/tot;o+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${p.c}" stroke-width="18" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;off+=len});
+ return o+`</g><text x="60" y="59" text-anchor="middle" style="font-size:20px;font-weight:800;fill:var(--tx)">${parts.reduce((a,p)=>a+p.v,0)}</text><text x="60" y="73" text-anchor="middle">anuncios</text></svg>`}
+const leg=a=>'<div class="leg">'+a.map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join("")+"</div>";
+const cc=(t,sub,body,extra)=>`<div class="cc"><h3>${t}</h3><p>${sub}</p>${body}${extra||""}</div>`;
+const kp=(v,l)=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`;
+function renderStats(){const body=$("#statsBody");if(!body)return;
+ const lw=x=>String(x).toLowerCase(),live=feed.filter(x=>cfg.some(b=>lw(b.keywords)==lw(x.kw))),bot=cfg.find(b=>b.id==sBot);if(sBot&&!bot)sBot="";
+ const cb=(t,on,fn)=>`<button class="${on?"on":""}" onclick="${fn}">${t}</button>`;
+ $("#sfl").innerHTML=cb("📊 Resumen",!sBot,"sBot='';renderStats()")+cfg.map((b,i)=>cb(esc(b.keywords),sBot==b.id,"sBot=cfg["+i+"].id;renderStats()")).join("");
+ const its=bot?live.filter(x=>lw(x.kw)==lw(bot.keywords)):live,dias=[];
+ for(let i=13;i>=0;i--){const d=new Date();dias.push(new Date(d.getFullYear(),d.getMonth(),d.getDate()-i))}
+ const porDia=dias.map(d=>{const a=d.getTime()/1000;return its.filter(x=>x.t>=a&&x.t<a+86400).length}),lab=dias.map(d=>d.getDate()+"/"+(d.getMonth()+1));
+ const pl=n=>its.filter(x=>x.p==n).length,graf=cc("Anuncios encontrados por día","Últimos 14 días, según las novedades guardadas.",its.length?svgBars(porDia,lab,"var(--ac)"):'<div class="nodata">Aún no hay anuncios guardados.</div>');
+ const plat=cc("Por plataforma","Reparto de los anuncios guardados.",its.length?svgDonut([{v:pl("Wallapop"),c:"var(--ac)"},{v:pl("Vinted"),c:"var(--vi)"}]):'<div class="nodata">Sin datos.</div>',leg([["var(--ac)","Wallapop ("+pl("Wallapop")+")"],["var(--vi)","Vinted ("+pl("Vinted")+")"]]));
+ let h="";
+ if(!bot){
+  const nch=its.filter(x=>x.ch).length,nba=its.filter(x=>x.pa).length;
+  h+=`<div class="kg">${kp(its.length,"Anuncios guardados")}${kp(nch,"🔥 Chollos")}${kp(nba,"📉 Bajadas de precio")}${kp(favs.length,"⭐ Favoritos")}</div>`;
+  const con=cfg.map(b=>({b,n:live.filter(x=>lw(x.kw)==lw(b.keywords)).length,s:stats[b.id]})),med=con.filter(o=>o.s&&o.s.todo);
+  h+='<div class="cg">'+graf+plat
+   +cc("Anuncios por bot","Cuántos anuncios ha encontrado cada uno.",con.length?svgH(con.map(o=>({l:o.b.keywords,v:o.n,c:"var(--ac)"}))):'<div class="nodata">Sin bots.</div>')
+   +cc("Mediana de precio por bot","Mercado completo, sin límite de precio.",med.length?svgH(med.map(o=>({l:o.b.keywords,v:o.s.todo.mediana,c:"var(--vi)"})),eur):'<div class="nodata">Las estadísticas se calculan en unos minutos (un bot cada 30 s).</div>')+"</div>";
+  if(med.length)h+=`<div class="cc"><h3>Precios por bot</h3><p>Mercado sin límite de precio frente a tu rango.</p><div class="tw"><table class="tbl"><tr><th>Bot</th><th>Mediana</th><th>Media</th><th>Mín–máx</th><th>Tu rango (mediana)</th><th>Muestra</th><th>Actualizado</th></tr>${
+   med.map(o=>{const t=o.s.todo,r=o.s.rango;return`<tr><td>${esc(o.b.keywords)}</td><td>${m0(t.mediana)}</td><td>${m0(t.media)}</td><td>${m0(t.min)}–${m0(t.max)}</td><td>${r?m0(r.mediana)+" ("+r.n+")":"—"}</td><td>${t.n}</td><td>${ago(o.s.t)}</td></tr>`}).join("")}</table></div></div>`;
+ }else{
+  const s=stats[bot.id],t=s&&s.todo,r=s&&s.rango;
+  h+=`<div class="kg">${kp(t?m0(t.mediana):"—","Mediana del mercado")}${kp(t?m0(t.media):"—","Media del mercado")}${kp(r?m0(r.mediana):"—","Mediana en tu rango")}${kp(t?t.n:"—","Anuncios de muestra")}</div>`;
+  if(!t)h+='<div class="cc"><div class="nodata">📊 Aún no hay estadísticas de este bot. El bot las calcula en unos minutos (un bot cada 30 s) y las renueva cada 6 horas.</div></div>';
+  else{
+   const hist=s.hist?cc("Distribución de precios","Cuántos anuncios hay a cada precio, sin límite de precio.",svgHist(s.hist,bot.min_price,bot.max_price>=1000?1e9:bot.max_price,t.mediana),leg([["var(--ac)","dentro de tu rango"],[GR.split('"')[0],"fuera de tu rango"],["var(--rd)","mediana"]])):"";
+   const sr=(s.serie||[]).filter(p=>p&&p.length>=3),ev=sr.length>=2?cc("Evolución del precio","Mediana y media del mercado a lo largo del tiempo.",svgLine([{c:"var(--vi)",pts:sr.map(p=>[p[0],p[1]])},{c:"var(--ac)",d:1,pts:sr.map(p=>[p[0],p[2]])}]),leg([["var(--vi)","mediana"],["var(--ac)","media"]])):cc("Evolución del precio","Mediana y media del mercado a lo largo del tiempo.",'<div class="nodata">Se irá dibujando según pasen las horas: el bot añade un punto cada 6 h.</div>');
+   const pp=Object.entries(s.plat||{}),vs=pp.length?cc("Wallapop frente a Vinted","Mediana del precio en cada plataforma.",svgH(pp.map(([n,v])=>({l:n+" ("+v.n+")",v:v.mediana,c:n=="Vinted"?"var(--vi)":"var(--ac)"})),eur)):"";
+   h+='<div class="cg">'+hist+ev+vs+graf+plat+"</div>";
+   h+=`<p class="foot" style="text-align:left">Muestra de los ${t.n} anuncios más recientes (sin límite de precio, con tu filtro de idioma y palabras excluidas). Actualizado ${ago(s.t)}.</p>`}
+ }
+ body.innerHTML=h}
 /* ---- buscar y ordenar ---- */
 const dto=x=>Math.max(x.ch||0,x.pa?Math.round((1-x.pr/x.pa)*100):0),tf=x=>(tab=="fav"?x.fav||x.t:x.t)||0;
 function cmpSo(a,b){if(fSo=="pa")return a.pr-b.pr||tf(b)-tf(a);if(fSo=="pd")return b.pr-a.pr||tf(b)-tf(a);if(fSo=="ch")return dto(b)-dto(a)||tf(b)-tf(a);return tf(b)-tf(a)}
@@ -258,10 +322,11 @@ const qOk=x=>{if(!fQ)return true;const h=nrm(x.n+" "+x.kw);return nrm(fQ).split(
 function qIn(v){clearTimeout(qt);qt=setTimeout(()=>{fQ=v.trim();renderFeed()},150)}
 function soCh(v){fSo=v;renderFeed()}
 function ago(t){const m=Math.max(0,Math.round((Date.now()/1000-t)/60));return m<1?"ahora":m<60?"hace "+m+" min":m<1440?"hace "+Math.round(m/60)+" h":"hace "+Math.round(m/1440)+" d"}
-function setTab(x){const fd=x=="feed"||x=="arch"||x=="fav";if(x!=tab){fKw="";fSp=""}tab=x;clearInterval(fiv);closeMenu();if(!$("#tabBots"))return;
- $("#tabBots").classList.toggle("hide",x!="bots");$("#tabFeed").classList.toggle("hide",!fd);
- $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");$("#tb3").classList.toggle("on",x=="arch");$("#tb4").classList.toggle("on",x=="fav");$("#app").classList.toggle("f",fd);
- if(fd&&TOK){loadFavs(true).then(()=>renderFeed());loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}}
+function setTab(x){const fd=x=="feed"||x=="arch"||x=="fav",sd=x=="stats";if(x!=tab){fKw="";fSp=""}tab=x;clearInterval(fiv);closeMenu();if(!$("#tabBots"))return;
+ $("#tabBots").classList.toggle("hide",x!="bots");$("#tabFeed").classList.toggle("hide",!fd);$("#tabStats").classList.toggle("hide",!sd);
+ $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");$("#tb3").classList.toggle("on",x=="arch");$("#tb4").classList.toggle("on",x=="fav");$("#tb5").classList.toggle("on",sd);$("#app").classList.toggle("f",fd||sd);
+ if(fd&&TOK){loadFavs(true).then(()=>renderFeed());loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}
+ if(sd&&TOK){loadStats();loadFavs(true).then(()=>renderStats());loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}}
 function closeMenu(){const m=$("#menu");if(m)m.classList.add("hide")}
 function toggleMenu(){$("#menu").classList.toggle("hide")}
 document.addEventListener("click",e=>{if(!e.target.closest(".mw"))closeMenu()});
@@ -285,7 +350,7 @@ function nCols(){const v=parseInt(getComputedStyle($("#grid")).getPropertyValue(
 function cols(arr){const n=lastCols=nCols(),c=Array.from({length:n},()=>[]);arr.forEach((h,i)=>c[i%n].push(h));
  return c.map(a=>`<div class="col">${a.join("")}</div>`).join("")}
 addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(lastCols&&nCols()!=lastCols)renderFeed()},200)});
-function renderFeed(){const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b])),kk=x=>String(x.kw).toLowerCase(),
+function renderFeed(){if(tab=="stats"){renderStats();return}const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b])),kk=x=>String(x.kw).toLowerCase(),
   isA=x=>cfgOk&&!byKw.has(kk(x)),arch=feed.filter(isA),live=feed.filter(x=>!isA(x));
  const F=tab=="fav",favSet=new Set(favs.map(f=>f.u)),pool=F?favs:A?arch:live,kws=[...new Set(pool.map(kk))],nm={};pool.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
  if(fKw&&!kws.includes(fKw))fKw="";
@@ -303,7 +368,7 @@ function renderFeed(){const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.to
    cs=String(x.lg||"").split(",").filter(Boolean),fl=cs.map(c=>c=="?"?"🌐?":lflag(c)).join(" "),
    lt=fl?" · "+fl:(b&&b.lang_mode&&b.lang_mode!="off"?" · 🌐 sin detectar":"");
   return`<div class="pin${vd?" sd":""}"><a href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
-  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€${x.pa?`<s>${(+x.pa).toFixed(2).replace(/\.00$/,"")}€</s>`:""}</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span><div class="tg">${nw?'<span class="nw">NUEVO</span>':""}${x.ch?`<span class="cho" title="${+x.ch}% por debajo de la mediana (${Math.round(+x.md||0)}€)">🔥 −${+x.ch}%</span>`:""}${x.pa?`<span class="baj" title="Antes ${+x.pa}€">📉 −${Math.round((1-x.pr/x.pa)*100)}%</span>`:""}</div>${x.st=="sold"?'<div class="sdl"><span>VENDIDO</span></div>':x.st=="gone"?'<div class="sdl"><span class="gn">NO DISPONIBLE</span></div>':x.st=="reserved"?'<span class="rs">RESERVADO</span>':""}</div>
+  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€${x.pa?`<s>${(+x.pa).toFixed(2).replace(/\.00$/,"")}€</s>`:""}</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span><div class="tg">${nw?'<span class="nw">NUEVO</span>':""}${x.ch?`<span class="cho" title="${+x.ch}% por debajo de la mediana de tu rango (${Math.round(+x.md||0)}€)">🔥 −${+x.ch}%</span>`:""}${x.pa?`<span class="baj" title="Antes ${+x.pa}€">📉 −${Math.round((1-x.pr/x.pa)*100)}%</span>`:""}</div>${x.st=="sold"?'<div class="sdl"><span>VENDIDO</span></div>':x.st=="gone"?'<div class="sdl"><span class="gn">NO DISPONIBLE</span></div>':x.st=="reserved"?'<span class="rs">RESERVADO</span>':""}</div>
   <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}${lt}</small></div></a>${F?"":`<button class="xb" title="Quitar de novedades" aria-label="Quitar de novedades" onclick="delItem(${n})">🗑</button>`}<button class="fvb${favSet.has(x.u)?" on":""}${F?" solo":""}" title="${favSet.has(x.u)?"Quitar de favoritos":"Guardar en favoritos"}" aria-label="Favorito" onclick="toggleFav(${n})">${favSet.has(x.u)?"★":"☆"}</button></div>`};
  const L=pool.filter(x=>(!fKw||kk(x)==fKw)&&(A||F||!fPl||x.p==fPl)&&!(hideSold&&sd(x))&&(!fSp||(fSp=="ch"?x.ch:x.pa))&&qOk(x)),cur=[],old=new Map();
  for(const x of L){const b=byKw.get(kk(x));
