@@ -220,18 +220,32 @@ Comandos útiles: `sudo systemctl restart wallapop` (tras cambiar algo), `sudo s
 
 **5. Actualizar el bot** cuando haya cambios en el código:
 
+Con el script incluido, **un solo comando** (después de subir los cambios a GitHub):
+
 ```bash
 cd ~/wallapop-alertas
-sudo systemctl stop wallapop              # al parar, el bot sube su estado a GitHub
-cp data/state.json ~/state.backup.json    # copia de seguridad por si acaso
-git checkout -- data/state.json           # descarta la copia local: ya está en GitHub
-git pull --rebase
-./venv/bin/pip install -r requirements.txt
-sudo systemctl start wallapop
+bash actualizar.sh
 ```
 
-> Si el `git pull` se queja de `data/state.json`, restáuralo con `cp ~/state.backup.json data/state.json` después de hacer
-> `git reset --hard origin/main`.
+El script para el servicio (el bot sube su estado a GitHub al pararse), guarda una copia del estado en `~/wallapop-backups/` (conserva las 10 últimas),
+trae la última versión, instala las dependencias solo si `requirements.txt` cambió, comprueba que `check.py` compila, arranca el servicio y
+verifica que sigue vivo. Además:
+
+- Si ya tienes la última versión, te lo dice y **no reinicia nada** (`bash actualizar.sh --forzar` reinicia igualmente).
+- Si la versión nueva no compila o el bot se cae al arrancar, **vuelve solo a la versión anterior** y te enseña el error.
+- Si hay conflicto con `data/state.json`, lo resuelve él.
+- Si no tiene internet, o tienes cambios tuyos en el código sin guardar, **para antes de tocar nada** y te explica qué ocurre.
+
+Para llamarlo más corto, añade un alias: `echo "alias actualizar='bash ~/wallapop-alertas/actualizar.sh'" >> ~/.bashrc` (vale desde la próxima sesión).
+La **primera vez** (cuando todavía no tienes el script) actualiza a mano:
+
+```bash
+cd ~/wallapop-alertas
+sudo systemctl stop wallapop
+git checkout -- data/state.json
+git pull --rebase
+sudo systemctl start wallapop
+```
 
 > **Usa solo UNA de las dos opciones a la vez.** Si ejecutas el bot en tu Raspberry y además tienes activo el flujo
 > de GitHub Actions, recibirás los avisos duplicados. Si te pasas a la opción B, desactiva el flujo
@@ -464,6 +478,7 @@ Revisa *Settings › Billing* de tu cuenta. Si no encuentras la causa, escribe a
 ```
 .
 ├── check.py                    # el bot: búsquedas, filtros, avisos de Telegram
+├── actualizar.sh               # actualiza el bot en la Raspberry con un solo comando (opción B)
 ├── requirements.txt            # requests (y lingua, opcional, para el detector de idioma)
 ├── data/
 │   ├── config.json             # tus bots (lo escriben el panel y Telegram)
