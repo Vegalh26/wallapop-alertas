@@ -14,7 +14,6 @@ import json
 import os
 import re
 import signal
-import subprocess
 import sys
 import time
 import unicodedata
@@ -346,6 +345,7 @@ def bot_keyboard(b):
 AYUDA = (
     "👋 <b>Wallapop Bot Manager</b>\n\n"
     "/bots — ver y controlar tus bots\n"
+    "/stats — precio medio y mediana de cada bot\n"
     "/nuevo &lt;palabras&gt; [min] [max] — crear un bot\n"
     "   ej: <code>/nuevo mario party 0 30</code>\n"
     "   ej: <code>/nuevo jamboree 25</code> (solo máximo)\n\n"
@@ -427,6 +427,11 @@ def on_message(m, bots):
             send("😴 No hay bots. Usa /nuevo para crear uno.")
         for b in bots:
             send(bot_text(b), bot_keyboard(b))
+    elif cmd == "/stats":
+        if not bots:
+            send("😴 No hay bots. Usa /nuevo para crear uno.")
+        for b in bots:
+            send(f"🤖 <b>{esc(b['keywords'])}</b>\n{stats_txt(b)}")
     elif cmd == "/nuevo":
         p = parse_nuevo(args)
         if not p:
@@ -675,10 +680,142 @@ def buscar_vinted(keywords, min_price, max_price):
     return out
 
 
+# ---------- Precios: bajadas, chollos y estadísticas ----------
+# · Bajada: un anuncio que ya conocíamos (se identifica por su enlace) vuelve a salir más barato.
+#   Cuenta si baja al menos BAJADA_MIN_EUR € y BAJADA_MIN_PCT %. Si SUBE de precio ya no se avisa como novedad.
+# · Chollo: un anuncio nuevo con un precio CHOLLO_PCT % (o más) por debajo de la MEDIANA del mercado de esa
+#   búsqueda sin límite de precio (ver estadísticas). CHOLLO_PCT=0 lo desactiva.
+# · Estadísticas: cada STATS_EVERY segundos se recalcula, para un bot por vuelta, el precio del mercado de su
+#   búsqueda SIN límite de precio y dentro de tu rango. Se guardan en data/stats.json (las muestra el panel).
+BAJADA_MIN_PCT = float(os.environ.get("BAJADA_MIN_PCT", "5") or 5)
+BAJADA_MIN_EUR = float(os.environ.get("BAJADA_MIN_EUR", "1") or 1)
+CHOLLO_PCT = float(os.environ.get("CHOLLO_PCT", "40") or 0)
+CHOLLO_MIN_N = 8       # muestras mínimas para fiarse de la mediana
+PRECIOS_MAX = 2000     # precios recordados por bot
+STATS_EVERY = int(os.environ.get("STATS_EVERY", "21600") or 21600)
+STATS_PATH = "data/stats.json"
+STATS = {}             # id de bot -> estadísticas
+_stats_ctl = {"cargadas": False, "fallo": {}}
+
+
+def ident(r):
+    """Identidad estable de un anuncio (su enlace sin parámetros): no cambia aunque cambie el precio."""
+    return hashlib.md5(r["enlace"].split("?")[0].split("#")[0].encode()).hexdigest()[:10]
+
+
+def baja_significativa(antes, ahora_):
+    d = antes - ahora_
+    return d >= BAJADA_MIN_EUR and d >= antes * BAJADA_MIN_PCT / 100
+
+
+def _resumen(precios):
+    p = sorted(x for x in precios if x > 0)
+    if not p:
+        return None
+    n = len(p)
+    med = p[n // 2] if n % 2 else (p[n // 2 - 1] + p[n // 2]) / 2
+    return {"n": n, "media": round(sum(p) / n, 2), "mediana": round(med, 2), "min": p[0], "max": p[-1]}
+
+
+def sig_stats(b):
+    """Las estadísticas solo valen para la configuración con la que se calcularon."""
+    return b["keywords"].lower() + "|" + firma(b)
+
+
+def marcar_chollo(b, r):
+    if CHOLLO_PCT <= 0:
+        return
+    s = STATS.get(b["id"])
+    if not s or s.get("sig") != sig_stats(b):
+        return
+    t = s.get("todo") or {}
+    med = t.get("mediana")
+    if not med or t.get("n", 0) < CHOLLO_MIN_N or r["precio"] < 0.5:
+        return
+    pct = round((1 - r["precio"] / med) * 100)
+    if pct >= CHOLLO_PCT:
+        r["chollo"], r["mediana"] = pct, med
+
+
+def _fuentes(b):
+    fuente = b.get("source", "ambos")
+    return [(n, f) for n, f, fu in (("Wallapop", buscar, ("wallapop", "ambos")),
+                                    ("Vinted", buscar_vinted, ("vinted", "ambos"))) if fuente in fu]
+
+
+def cargar_stats():
+    _stats_ctl["cargadas"] = True
+    try:
+        d, _ = leer_json_repo(STATS_PATH, None)
+        STATS.update((d or {}).get("bots", {}))
+    except Exception as e:
+        print("Aviso al leer estadísticas:", e)
+
+
+def guardar_stats(bots):
+    vivos = {b["id"] for b in bots}
+    try:
+        sha = leer_json_repo(STATS_PATH, None)[1]
+        escribir_json_repo(STATS_PATH, {"bots": {i: v for i, v in STATS.items() if i in vivos}}, sha)
+    except Exception as e:
+        print("Aviso al guardar estadísticas:", e)
+
+
+def actualizar_stats(bots):
+    """Recalcula las estadísticas de UN bot por vuelta (el que más las necesita)."""
+    if not _stats_ctl["cargadas"]:
+        cargar_stats()
+    ahora_t = time.time()
+    pend = [b for b in bots if b["status"] == "running"
+            and (STATS.get(b["id"], {}).get("sig") != sig_stats(b)
+                 or ahora_t - STATS[b["id"]].get("t", 0) >= STATS_EVERY)
+            and ahora_t - _stats_ctl["fallo"].get(b["id"], 0) >= 600]
+    if not pend:
+        return
+    b = min(pend, key=lambda x: STATS.get(x["id"], {}).get("t", 0))
+    muestras = []
+    for nombre, fn in _fuentes(b):
+        try:
+            muestras += fn(b["keywords"], 0, SIN_LIMITE)  # SIN límite de precio
+        except Exception as e:
+            print(f"[{b['keywords']}] Estadísticas, error {nombre}: {e}")
+    if not muestras:
+        _stats_ctl["fallo"][b["id"]] = ahora_t
+        return
+    for r in muestras:
+        r["lg"] = sorted(idiomas_en(r["nombre"], r.get("desc", "")))
+    muestras = [r for r in muestras if pasa_idioma(b, r) and pasa_exclusion(b, r)]
+    STATS[b["id"]] = {
+        "kw": b["keywords"], "sig": sig_stats(b), "t": int(ahora_t),
+        "todo": _resumen([r["precio"] for r in muestras]),
+        "rango": _resumen([r["precio"] for r in muestras if b["min_price"] <= r["precio"] <= b["max_price"]]),
+    }
+    print(f"[{b['keywords']}] estadísticas: {STATS[b['id']]['todo']}")
+    guardar_stats(bots)
+
+
+def _fmt_resumen(s):
+    return f"media {s['media']:.0f}€ · mediana {s['mediana']:.0f}€ · de {s['min']:.0f}€ a {s['max']:.0f}€ ({s['n']} anuncios)"
+
+
+def stats_txt(b):
+    s = STATS.get(b["id"])
+    if not s:
+        return "📊 Aún sin estadísticas (se calculan en unos minutos)."
+    out = "📊 <b>Mercado</b> (sin límite de precio): " + (_fmt_resumen(s["todo"]) if s.get("todo") else "sin datos")
+    if s.get("rango"):
+        out += f"\n🎯 <b>Tu rango</b> ({b['min_price']}€ – {fmt_max(b['max_price'])}): " + _fmt_resumen(s["rango"])
+    return out
+
+
 def bloque(i, r, con_idioma=False):
     ic = "🟣 Vinted" if r.get("plat") == "Vinted" else "🟢 Wallapop"
     idi = f"\n🌐 Idioma: {idioma_txt(r)}" if con_idioma else ""
-    return f"{i}. {ic} · 💰 {r['precio']:.2f}€\n📝 {esc(r['nombre'])}{idi}\n🔗 {r['enlace']}\n\n"
+    pr = f"{r['precio']:.2f}€"
+    if r.get("antes"):
+        pr += f" (antes {r['antes']:.2f}€, −{round((1 - r['precio'] / r['antes']) * 100)}%)"
+    ch = f"\n🔥 {r['chollo']}% por debajo de la mediana ({r['mediana']:.0f}€)" if r.get("chollo") else ""
+    return f"{i}. {ic} · 💰 {pr}\n📝 {esc(r['nombre'])}{ch}{idi}\n🔗 {r['enlace']}\n\n"
 
 
 def comprobar_bots(bots, meta):
@@ -688,9 +825,7 @@ def comprobar_bots(bots, meta):
     stats = {"Wallapop": [0, 0, ""], "Vinted": [0, 0, ""]}  # ok, fallos, último error
     ts = ahora().strftime("%d/%m - %H:%M")
     for b in activos:
-        fuente = b.get("source", "ambos")
-        pedidos = [(n, f) for n, f, fu in (("Wallapop", buscar, ("wallapop", "ambos")),
-                                           ("Vinted", buscar_vinted, ("vinted", "ambos"))) if fuente in fu]
+        pedidos = _fuentes(b)
         resultados, fallos = [], 0
         for nombre, fn in pedidos:
             try:
@@ -719,6 +854,28 @@ def comprobar_bots(bots, meta):
         añadir = list(dict.fromkeys(key_de(r) for r in nuevos))
         b["seen"] = (previos + añadir)[-2000:]
 
+        # Bajadas de precio: un anuncio conocido (por enlace) que ahora es más barato. Si solo cambió al alza
+        # o casi nada, es el mismo anuncio y no se avisa como novedad (antes salía como "NUEVO").
+        precios = b.setdefault("prices", {})
+        novedades, bajadas = [], []
+        primera = not b.get("first_done")
+        for r in nuevos:
+            ant = precios.get(ident(r))
+            if primera or ant is None:
+                novedades.append(r)
+            elif baja_significativa(ant, r["precio"]):
+                r["antes"] = ant
+                bajadas.append(r)
+        for r in resultados:  # recordar el último precio de cada anuncio
+            i = ident(r)
+            precios.pop(i, None)
+            precios[i] = r["precio"]
+        if len(precios) > PRECIOS_MAX:
+            for k in list(precios)[:len(precios) - PRECIOS_MAX]:
+                del precios[k]
+        for r in (resultados if primera else novedades + bajadas):
+            marcar_chollo(b, r)
+
         if not b.get("first_done"):
             b["first_done"] = True
             if resultados:
@@ -729,13 +886,18 @@ def comprobar_bots(bots, meta):
                 )
             else:
                 send(f"🔴 Sin resultados para <b>{esc(b['keywords'])}</b>")
-        elif nuevos:
-            registrar(b, nuevos)
-            send_blocks(
-                f"🆕 <b>NUEVOS</b> — <i>{esc(b['keywords'])}</i>\n📅 {ts}\n{cab}\n",
-                [bloque(i, r, bool(fi)) for i, r in enumerate(nuevos, 1)],
-            )
-        print(f"[{b['keywords']}] resultados={len(resultados)} nuevos={len(nuevos)}")
+        elif novedades or bajadas:
+            chollos = [r for r in novedades if r.get("chollo")]
+            for titulo, lote in (("🔥 <b>POSIBLES CHOLLOS</b>", chollos),
+                                 ("📉 <b>BAJADAS DE PRECIO</b>", bajadas),
+                                 ("🆕 <b>NUEVOS</b>", [r for r in novedades if not r.get("chollo")])):
+                if lote:
+                    registrar(b, lote)
+                    send_blocks(
+                        f"{titulo} — <i>{esc(b['keywords'])}</i>\n📅 {ts}\n{cab}\n",
+                        [bloque(i, r, bool(fi)) for i, r in enumerate(lote, 1)],
+                    )
+        print(f"[{b['keywords']}] resultados={len(resultados)} nuevos={len(novedades)} bajadas={len(bajadas)}")
 
     # Avisos de bloqueo, una sola vez por plataforma
     for nombre, (o, f, ultimo) in stats.items():
@@ -845,6 +1007,10 @@ def registrar(b, items):
         it = {"id": i, "t": t, "kw": b["keywords"], "p": r.get("plat", "Wallapop"), "n": r["nombre"],
               "pr": r["precio"], "u": r["enlace"], "im": r.get("img", ""),
               "f": firma(b), "lg": ",".join(r.get("lg", []))}
+        if r.get("antes"):
+            it["pa"] = r["antes"]                      # precio anterior (bajada de precio)
+        if r.get("chollo"):
+            it["ch"], it["md"] = r["chollo"], r["mediana"]  # % bajo la mediana y mediana
         lote.append(it)
     if lote:
         RES["new"] = lote + RES["new"]
@@ -871,6 +1037,10 @@ def guardar_recientes(bots=None):
     for _ in range(3):
         d, sha = leer_json_repo("data/results.json", {"items": []})
         remoto = (d or {}).get("items", [])
+        # una bajada de precio sustituye a la tarjeta anterior del mismo anuncio (misma URL)
+        sustituye = {(x.get("u"), str(x.get("kw", "")).lower()) for x in RES["new"] if x.get("pa")}
+        if sustituye:
+            remoto = [x for x in remoto if (x.get("u"), str(x.get("kw", "")).lower()) not in sustituye]
         ids = {(x["id"], str(x.get("kw", "")).lower()) for x in remoto}
         for x in remoto:  # estados pendientes sobre lo que haya en el repo
             k = (x["id"], str(x.get("kw", "")).lower())
@@ -898,11 +1068,13 @@ def cfg_of(bots):
 def fusionar(cfg, meta):
     est = meta.get("bots", {})
     return [{**c, "seen": est.get(c["id"], {}).get("seen", []),
-             "first_done": est.get(c["id"], {}).get("first_done", False)} for c in cfg]
+             "first_done": est.get(c["id"], {}).get("first_done", False),
+             "prices": est.get(c["id"], {}).get("prices", {})} for c in cfg]
 
 
 def guardar(bots, meta):
-    meta["bots"] = {b["id"]: {"seen": b.get("seen", []), "first_done": b.get("first_done", False)} for b in bots}
+    meta["bots"] = {b["id"]: {"seen": b.get("seen", []), "first_done": b.get("first_done", False),
+                              "prices": b.get("prices", {})} for b in bots}
     meta["heartbeat"] = ahora().strftime("%Y-%m-%d")
     save_json(STATE_FILE, meta)
 
@@ -985,39 +1157,33 @@ def aviso_conexion(ok, err):
     _estado["ultimo_ok"] = time.time()
 
 
-def git_guardar():
-    """Sube data/state.json al repo (commit + push) sin romper el bucle si algo falla.
+STATE_PUSH_EVERY = int(os.environ.get("STATE_PUSH_EVERY", "900") or 900)
+_estado_sub = {"hash": ""}
 
-    config.json y results.json se escriben por la API de GitHub, así que antes del push
-    se hace un pull --rebase para traer esos cambios. Requiere 'permissions: contents: write'
-    en el workflow.
-    """
-    def run(*cmd):
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
+def subir_estado():
+    """Copia data/state.json al repo por la API de GitHub (la misma vía que config.json y results.json).
+
+    Antes se hacía 'git commit' + 'git push' desde la máquina: sin credenciales de git (Raspberry) el push
+    fallaba y se acumulaban commits locales sin subir. Por la API solo hace falta el GITHUB_TOKEN que el bot ya
+    usa, no se crean commits locales y no hay conflictos al hacer 'git pull'."""
+    if not (REPO and GH_TOKEN):
+        return  # modo local sin GitHub: el estado queda solo en data/state.json
     try:
-        run("git", "config", "user.name", "github-actions[bot]")
-        run("git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
-        run("git", "add", "data/state.json")
-        if run("git", "diff", "--cached", "--quiet").returncode == 0:
-            return  # nada que guardar
-        c = run("git", "commit", "-m", "state [skip ci]")
-        if c.returncode != 0:
-            print("Aviso git commit:", (c.stderr or c.stdout)[:300])
-            return
-        p = run("git", "pull", "--rebase", "--autostash")
-        if p.returncode != 0:
-            print("Aviso git pull:", (p.stderr or p.stdout)[:300])
-            run("git", "rebase", "--abort")
-            return
-        p = run("git", "push")
-        if p.returncode != 0:
-            print("Aviso git push:", (p.stderr or p.stdout)[:300])
+        txt = STATE_FILE.read_text(encoding="utf-8")
+        h = hashlib.md5(txt.encode()).hexdigest()
+        if h == _estado_sub["hash"]:
+            return  # nada nuevo desde la última subida
+        sha = leer_json_repo("data/state.json", None)[1]
+        escribir_json_repo("data/state.json", json.loads(txt), sha)
+        _estado_sub["hash"] = h
     except Exception as e:
-        print("Aviso en git_guardar:", e)
+        print("Aviso al subir el estado a GitHub:", e)
 
 
 def iteracion(bots, meta):
+    if not _stats_ctl["cargadas"]:
+        cargar_stats()
     remota, sha = leer_config()
     bots[:] = fusionar(remota, meta)
     procesar_updates(bots, meta)
@@ -1029,6 +1195,10 @@ def iteracion(bots, meta):
         guardar_recientes(bots)
     except Exception as e:
         print("Aviso al guardar novedades:", e)
+    try:
+        actualizar_stats(bots)
+    except Exception as e:
+        print("Aviso en estadísticas:", e)
     return ok, err
 
 
@@ -1052,7 +1222,7 @@ def main():
     signal.signal(signal.SIGTERM, _al_parar)
     aviso_arranque()
     fin = time.time() + LOOP_SECONDS
-    ultimo_git = time.time()
+    ultimo_sub = time.time()
     try:
         while time.time() < fin:
             t0 = time.time()
@@ -1063,9 +1233,9 @@ def main():
                 ok, err = 0, 1
             latido()
             aviso_conexion(ok, err)
-            if time.time() - ultimo_git > 600:
-                git_guardar()
-                ultimo_git = time.time()
+            if time.time() - ultimo_sub > STATE_PUSH_EVERY:
+                subir_estado()
+                ultimo_sub = time.time()
             pausa = 60 if (err and not ok) else CHECK_INTERVAL
             try:
                 esperar_comandos(bots, meta, min(t0 + pausa, fin))
@@ -1075,10 +1245,12 @@ def main():
     except SystemExit:  # parada ordenada: se guarda el estado para no repetir avisos al volver
         try:
             guardar(bots, meta)
+            subir_estado()
         except Exception as e:
             print("Aviso al guardar al parar:", e)
         raise
     guardar(bots, meta)
+    subir_estado()
 
 
 if __name__ == "__main__":
