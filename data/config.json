@@ -80,5 +80,16 @@
     "lang_mode": "off",
     "langs": [],
     "exclude": []
+  },
+  {
+    "id": "q7hwjhmw",
+    "status": "running",
+    "keywords": "Moondrop Robin",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": []
   }
 ]
