@@ -44,7 +44,7 @@ a{color:var(--mut);font-size:13px}
 #m{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#1d2228;color:#fff;padding:11px 18px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;max-width:90vw;z-index:9;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 #m.show{opacity:1;transform:translate(-50%,0)}#m.e{background:var(--rd)}
 main.wide{max-width:1100px}
-.tabs{grid-template-columns:repeat(3,1fr);margin-bottom:14px}.tabs button{min-height:44px;font-size:13px;padding:0 4px}
+.tabs{grid-template-columns:repeat(4,1fr);margin-bottom:14px}.tabs button{min-height:44px;font-size:12px;padding:0 2px}
 .fl{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.fl::-webkit-scrollbar{display:none}
 .fl button{min-height:36px;padding:0 14px;border-radius:99px;font-size:13px;white-space:nowrap;background:var(--card);color:var(--mut);border:1px solid var(--bd);box-shadow:none}
 .fl button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
@@ -106,7 +106,15 @@ main.wide{max-width:1100px}
 .menu button{display:block;width:100%;text-align:left;min-height:42px;background:transparent;color:var(--tx);border:0;border-radius:10px;padding:0 12px;font-size:14px;font-weight:500}
 .menu button:hover{background:var(--soft)}.menu button.dg{color:var(--rd)}
 .xb{position:absolute;right:8px;bottom:8px;width:32px;height:32px;min-height:0;padding:0;border-radius:99px;background:var(--soft);color:var(--mut);border:1px solid var(--bd);font-size:15px;line-height:1;box-shadow:none;opacity:.85}
-.xb:hover{opacity:1;color:var(--rd);border-color:var(--rd)}.pin .pb{padding-right:48px}
+.fvb{position:absolute;right:46px;bottom:8px;width:32px;height:32px;min-height:0;padding:0;border-radius:99px;background:var(--soft);color:var(--mut);border:1px solid var(--bd);font-size:16px;line-height:1;box-shadow:none;opacity:.85}
+.fvb.on{color:#f59e0b;border-color:#f59e0b;opacity:1}.fvb.solo{right:8px}
+.tg{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}.tg .nw{position:static}
+.cho,.baj{border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;color:#fff}.cho{background:#f97316}.baj{background:#2563eb}
+.pr s{opacity:.65;font-weight:500;margin-left:5px;font-size:11px}
+.srow{display:flex;gap:8px;margin:0 0 12px}.srow input{flex:1 1 auto;min-width:0}
+.srow select{flex:0 1 auto;max-width:46%;min-height:48px;padding:0 10px;border:1.5px solid var(--bd);border-radius:12px;background:var(--soft);color:var(--tx);font:inherit}
+.st{font-size:12.5px;color:var(--mut);line-height:1.55;margin:0 0 12px;padding:10px 12px;background:var(--soft);border-radius:12px}.st b{color:var(--tx)}.st small{font-size:11.5px}
+.xb:hover{opacity:1;color:var(--rd);border-color:var(--rd)}.pin .pb{padding-right:86px}
 .sdl{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
 .sdl span{background:rgba(0,0,0,.78);color:#fff;font-weight:800;letter-spacing:.08em;padding:6px 14px;border-radius:8px;transform:rotate(-8deg);font-size:14px;text-align:center}.sdl span.gn{background:rgba(90,98,110,.9);font-size:12px}
 .pin.sd .ph img,.pin.sd .ph.noimg{filter:grayscale(1);opacity:.45}.pin.sd .pb{opacity:.6}
@@ -128,7 +136,7 @@ main.wide{max-width:1100px}
 <section id="app" class="hide">
 <aside class="side">
  <div class="top"><div class="logo">🤖</div><div class="tt"><h1>Wallapop Bots</h1><small>Wallapop + Vinted</small></div><button class="g ic" onclick="lock()">🔒 Salir</button></div>
- <div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')">🤖 Mis bots</button><button id="tb2" onclick="setTab('feed')">✨ Novedades</button><button id="tb3" onclick="setTab('arch')">🗄 Archivados</button></div>
+ <div class="seg tabs"><button class="on" id="tb1" onclick="setTab('bots')">🤖 Mis bots</button><button id="tb2" onclick="setTab('feed')">✨ Novedades</button><button id="tb3" onclick="setTab('arch')">🗄 Archivo</button><button id="tb4" onclick="setTab('fav')">⭐ Favoritos</button></div>
  <div class="stats"><div class="stat"><b id="s1">0</b><span>Activos</span></div><div class="stat"><b id="s2">0</b><span>Pausados</span></div><div class="stat"><b id="s3">0</b><span>Total</span></div></div>
 </aside>
 <div class="content">
@@ -147,7 +155,7 @@ main.wide{max-width:1100px}
    <p class="foot" style="text-align:left;margin:12px 0 0">Máx 1000 = sin límite. Los cambios se aplican en segundos.</p></div>
   <div id="list"></div>
  </div>
- <div id="tabFeed" class="hide"><div class="frow"><div class="fl" id="fl"></div><div class="mw"><button class="g" id="mbtn" onclick="toggleMenu()" aria-label="Más opciones" title="Más opciones">⋯</button><div class="menu hide" id="menu"></div></div></div><div class="grid" id="grid"></div><div id="old"></div></div>
+ <div id="tabFeed" class="hide"><div class="frow"><div class="fl" id="fl"></div><div class="mw"><button class="g" id="mbtn" onclick="toggleMenu()" aria-label="Más opciones" title="Más opciones">⋯</button><div class="menu hide" id="menu"></div></div></div><div class="srow"><input id="q" type="search" placeholder="🔎 Buscar en los anuncios…" autocomplete="off" autocapitalize="off" oninput="qIn(this.value)"><select id="so" onchange="soCh(this.value)" aria-label="Ordenar"><option value="new">Más recientes</option><option value="pa">Precio: de menor a mayor</option><option value="pd">Precio: de mayor a menor</option><option value="ch">🔥 Mayor descuento</option></select></div><div class="grid" id="grid"></div><div id="old"></div></div>
  <p class="foot">Se bloquea solo tras 2 h sin usar</p>
 </div>
 </section></main><div id="m"></div>
@@ -157,6 +165,7 @@ const $=s=>document.querySelector(s),enc=new TextEncoder(),dec=new TextDecoder()
 const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LANGS=[["it","🇮🇹 Italiano"],["fr","🇫🇷 Francés"],["en","🇬🇧 Inglés"],["de","🇩🇪 Alemán"],["pt","🇵🇹 Portugués"],["jp","🇯🇵 Japonés"],["es","🇪🇸 Español"]];
+let favs=[],favSha=null,fQ="",fSo="new",fSp="",stats={},qt;
 let LM="off",LS=[],cfgOk=false,feedSha=null,hideSold=false;try{hideSold=!!localStorage.getItem("wbhs")}catch(e){}
 let TOK="",REPO="",cfg=[],sha=null,idle,ed=null,mt,feed=[],fKw="",fPl="",tab="bots",fiv;
 const store=()=>{try{return JSON.parse(localStorage.getItem("wb"))}catch(e){return null}};
@@ -168,7 +177,7 @@ async function unseal(o,p){return dec.decode(await crypto.subtle.decrypt({name:"
 const hd=()=>({Authorization:"Bearer "+TOK,Accept:"application/vnd.github+json"});
 const api=()=>`https://api.github.com/repos/${REPO}/contents/data/config.json`;
 function msg(t,e){const m=$("#m");clearTimeout(mt);if(!t){m.classList.remove("show");return}m.textContent=t;m.className="show"+(e?" e":"");mt=setTimeout(()=>m.classList.remove("show"),e?5000:2500)}
-function showLock(){setTab("bots");clearTimeout(idle);TOK="";cfg=[];cfgOk=false;$("#app").classList.add("hide");$("#lock").classList.remove("hide");
+function showLock(){setTab("bots");clearTimeout(idle);TOK="";cfg=[];cfgOk=false;favs=[];stats={};$("#app").classList.add("hide");$("#lock").classList.remove("hide");
  const s=store();$("#first").classList.toggle("hide",!!s);$("#again").classList.toggle("hide",!s);$("#forget").classList.toggle("hide",!s);$("#lm").textContent="";
  $("#pin1").value=$("#pin2").value="";if(!s){const g=location.hostname.endsWith(".github.io")?location.hostname.split(".")[0]+"/"+(location.pathname.split("/")[1]||""):"";$("#repo").value=g;$("#tok").value=""}}
 function lock(){showLock()}
@@ -206,7 +215,7 @@ async function load(){cancelEdit();msg("Cargando…");
  const r=await fetch(api(),{headers:hd(),cache:"no-store"});
  if(r.status==404){cfg=[];sha=null}else if(!r.ok){msg("Error "+r.status+" al leer el repo",1);return}
  else{const j=await r.json();sha=j.sha;cfg=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))}
- cfgOk=true;render();msg("");if(tab!="bots")loadFeed(true)}
+ cfgOk=true;render();msg("");loadStats();if(tab!="bots")loadFeed(true)}
 async function push(t){const b={message:t,content:btoa(unescape(encodeURIComponent(JSON.stringify(cfg,null,2))))};if(sha)b.sha=sha;
  const r=await fetch(api(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
  if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await load();return}
@@ -215,15 +224,44 @@ function render(){const a=cfg.filter(b=>b.status!="paused").length;$("#s1").text
  $("#list").innerHTML=cfg.length?cfg.map((b,i)=>{const s=b.source||"ambos",p=b.status=="paused";
  return`<div class="card"><div class="bhead"><b>${esc(b.keywords)}</b><span class="pill ${p?"off":"on"}">${p?"⏸ Pausado":"● Activo"}</span></div>
  <div class="chips"><span class="chip">💰 ${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}</span>${s!="vinted"?'<span class="chip cw">🟢 Wallapop</span>':""}${s!="wallapop"?'<span class="chip cv">🟣 Vinted</span>':""}${b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length?`<span class="chip">🌐 ${b.lang_mode=="solo"?"Solo":"Sin"} ${b.langs.map(c=>(LANGS.find(l=>l[0]==c)||["",c])[1].replace(/^\S+\s/,"")).join(", ")}</span>`:""}${(b.exclude||[]).length?`<span class="chip">🚫 ${esc(b.exclude.slice(0,3).join(", "))}${b.exclude.length>3?" +"+(b.exclude.length-3):""}</span>`:""}</div>
- <div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${p?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`}).join("")
+ ${stBlock(b)}<div class="act"><button class="g" onclick="edit(${i})">✏️ Editar</button><button class="g" onclick="tog(${i})">${p?"▶️ Reanudar":"⏸ Pausar"}</button><button class="r" onclick="del(${i})">🗑 Borrar</button></div></div>`}).join("")
  :'<div class="card empty"><div class="big">🔍</div><b>Aún no tienes bots</b><br>Crea el primero arriba y te avisaré por Telegram.</div>'}
 const apiF=()=>`https://api.github.com/repos/${REPO}/contents/data/results.json`;
 const safe=u=>/^https:\/\//.test(u||"")?u:"";
+const apiD=n=>`https://api.github.com/repos/${REPO}/contents/data/${n}.json`,nrm=t=>String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const rd=j=>JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))));
+/* ---- estadísticas por bot (las calcula el bot y las guarda en data/stats.json) ---- */
+async function loadStats(){try{const r=await fetch(apiD("stats"),{headers:hd(),cache:"no-store"});stats=r.ok?((rd(await r.json())||{}).bots||{}):{}}catch(e){}render()}
+const m0=v=>Math.round(+v)+"€";
+function stBlock(b){const s=stats[b.id];
+ if(!s)return'<div class="st">📊 Estadísticas: se calculan en unos minutos…</div>';
+ const f=r=>r?`media <b>${m0(r.media)}</b> · mediana <b>${m0(r.mediana)}</b> · de ${m0(r.min)} a ${m0(r.max)} (${r.n} anuncios)`:"sin datos";
+ const sin=b.max_price>=1000&&!(b.min_price>0);
+ return`<div class="st">📊 <b>Mercado</b> (sin límite de precio): ${f(s.todo)}${sin?"":`<br>🎯 <b>Tu rango</b> (${b.min_price}€ – ${b.max_price>=1000?"sin límite":b.max_price+"€"}): ${f(s.rango)}`}<br><small>Actualizado ${ago(s.t)}</small></div>`}
+/* ---- favoritos (data/favorites.json: se guardan aparte para que no se pierdan al vaciar novedades) ---- */
+async function loadFavs(silent){try{const r=await fetch(apiD("favorites"),{headers:hd(),cache:"no-store"});
+ if(r.status==404){favs=[];favSha=null}else if(!r.ok){if(!silent)msg("Error "+r.status+" al leer favoritos",1);return}
+ else{const j=await r.json();favSha=j.sha;favs=(rd(j)||{}).items||[]}
+ return true}catch(e){if(!silent)msg("Sin conexión",1)}}
+async function saveFavs(items){const b={message:"favoritos [skip ci]",content:btoa(unescape(encodeURIComponent(JSON.stringify({items}))))};if(favSha)b.sha=favSha;
+ const r=await fetch(apiD("favorites"),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
+ if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await loadFavs(true);return false}
+ favSha=(await r.json()).content.sha;return true}
+async function toggleFav(n){const x=(window.ref_||[])[n];if(!x||!x.u)return;
+ if(!await loadFavs(true)){msg("Sin conexión",1);return}   /* trae lo último y su sha */
+ const ya=favs.some(f=>f.u==x.u),next=ya?favs.filter(f=>f.u!=x.u):[{...x,fav:Math.floor(Date.now()/1000)},...favs].slice(0,500);
+ if(await saveFavs(next)){favs=next;renderFeed();msg(ya?"Quitado de favoritos":"⭐ Guardado en favoritos")}}
+/* ---- buscar y ordenar ---- */
+const dto=x=>Math.max(x.ch||0,x.pa?Math.round((1-x.pr/x.pa)*100):0),tf=x=>(tab=="fav"?x.fav||x.t:x.t)||0;
+function cmpSo(a,b){if(fSo=="pa")return a.pr-b.pr||tf(b)-tf(a);if(fSo=="pd")return b.pr-a.pr||tf(b)-tf(a);if(fSo=="ch")return dto(b)-dto(a)||tf(b)-tf(a);return tf(b)-tf(a)}
+const qOk=x=>{if(!fQ)return true;const h=nrm(x.n+" "+x.kw);return nrm(fQ).split(/\s+/).filter(Boolean).every(w=>h.includes(w))};
+function qIn(v){clearTimeout(qt);qt=setTimeout(()=>{fQ=v.trim();renderFeed()},150)}
+function soCh(v){fSo=v;renderFeed()}
 function ago(t){const m=Math.max(0,Math.round((Date.now()/1000-t)/60));return m<1?"ahora":m<60?"hace "+m+" min":m<1440?"hace "+Math.round(m/60)+" h":"hace "+Math.round(m/1440)+" d"}
-function setTab(x){const fd=x=="feed"||x=="arch";if(x!=tab)fKw="";tab=x;clearInterval(fiv);closeMenu();if(!$("#tabBots"))return;
+function setTab(x){const fd=x=="feed"||x=="arch"||x=="fav";if(x!=tab){fKw="";fSp=""}tab=x;clearInterval(fiv);closeMenu();if(!$("#tabBots"))return;
  $("#tabBots").classList.toggle("hide",x!="bots");$("#tabFeed").classList.toggle("hide",!fd);
- $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");$("#tb3").classList.toggle("on",x=="arch");$("#app").classList.toggle("f",fd);
- if(fd&&TOK){loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}}
+ $("#tb1").classList.toggle("on",x=="bots");$("#tb2").classList.toggle("on",x=="feed");$("#tb3").classList.toggle("on",x=="arch");$("#tb4").classList.toggle("on",x=="fav");$("#app").classList.toggle("f",fd);
+ if(fd&&TOK){loadFavs(true).then(()=>renderFeed());loadFeed();fiv=setInterval(()=>loadFeed(true),30000)}}
 function closeMenu(){const m=$("#menu");if(m)m.classList.add("hide")}
 function toggleMenu(){$("#menu").classList.toggle("hide")}
 document.addEventListener("click",e=>{if(!e.target.closest(".mw"))closeMenu()});
@@ -249,27 +287,31 @@ function cols(arr){const n=lastCols=nCols(),c=Array.from({length:n},()=>[]);arr.
 addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(lastCols&&nCols()!=lastCols)renderFeed()},200)});
 function renderFeed(){const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b])),kk=x=>String(x.kw).toLowerCase(),
   isA=x=>cfgOk&&!byKw.has(kk(x)),arch=feed.filter(isA),live=feed.filter(x=>!isA(x));
- const pool=A?arch:live,kws=[...new Set(pool.map(kk))],nm={};pool.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
+ const F=tab=="fav",favSet=new Set(favs.map(f=>f.u)),pool=F?favs:A?arch:live,kws=[...new Set(pool.map(kk))],nm={};pool.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
  if(fKw&&!kws.includes(fKw))fKw="";
  const chip=(l,on,fn)=>`<button class="${on?"on":""}" onclick="${fn}">${l}</button>`;window.kws_=kws;
- $("#fl").innerHTML=A?chip("Todos ("+pool.length+")",!fKw,"fKw='';renderFeed()")+kws.map((k,i)=>chip(esc(nm[k])+" ("+pool.filter(x=>kk(x)==k).length+")",fKw==k,"fKw=kws_["+i+"];renderFeed()")).join("")
+ $("#fl").innerHTML=(A||F)?chip("Todos ("+pool.length+")",!fKw,"fKw='';renderFeed()")+kws.map((k,i)=>chip(esc(nm[k])+" ("+pool.filter(x=>kk(x)==k).length+")",fKw==k,"fKw=kws_["+i+"];renderFeed()")).join("")
   :chip("Todo",!fKw&&!fPl,"fKw='';fPl='';renderFeed()")+chip("🟢 Wallapop",fPl=="Wallapop","fPl=fPl=='Wallapop'?'':'Wallapop';renderFeed()")+chip("🟣 Vinted",fPl=="Vinted","fPl=fPl=='Vinted'?'':'Vinted';renderFeed()")
    +kws.map((k,i)=>chip(esc(nm[k]),fKw==k,"fKw=fKw==kws_[" +i+ "]?'':kws_[" +i+ "];renderFeed()")).join("");
+ {const nc=pool.filter(x=>x.ch).length,nb=pool.filter(x=>x.pa).length;if((fSp=="ch"&&!nc)||(fSp=="pa"&&!nb))fSp="";
+  $("#fl").innerHTML+=(nc?chip("🔥 Chollos ("+nc+")",fSp=="ch","fSp=fSp=='ch'?'':'ch';renderFeed()"):"")+(nb?chip("📉 Bajadas ("+nb+")",fSp=="pa","fSp=fSp=='pa'?'':'pa';renderFeed()"):"")}
  const it=(t,fn,nt)=>`<button class="${nt?"nt":"dg"}" onclick="closeMenu();${fn}">${t}</button>`,sd=x=>x.st=="sold"||x.st=="gone",nS=pool.filter(sd).length;
- const mi=(nS?it((hideSold?"👁 Mostrar":"🙈 Ocultar")+" vendidos ("+nS+")","toggleSold()",1)+it("🧹 Borrar vendidos ("+nS+")","clearFeed('sold')"):"")+(fKw?it("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(A&&arch.length?it("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?it("🧹 Vaciar todo","clearFeed('all')"):"");
+ const mi=F?"":(nS?it((hideSold?"👁 Mostrar":"🙈 Ocultar")+" vendidos ("+nS+")","toggleSold()",1)+it("🧹 Borrar vendidos ("+nS+")","clearFeed('sold')"):"")+(fKw?it("🗑 Vaciar «"+esc(nm[fKw])+"»","clearFeed('kw')"):"")+(A&&arch.length?it("🗑 Vaciar todos los archivados","clearFeed('arc')"):"")+(feed.length?it("🧹 Vaciar todo","clearFeed('all')"):"");
  $("#menu").innerHTML=mi;$("#mbtn").classList.toggle("hide",!mi);if(!mi)closeMenu();
  const ref=[];window.ref_=ref;
  const pin=x=>{const w=x.p!="Vinted",im=safe(x.im),vd=sd(x),nw=!vd&&Date.now()/1000-x.t<600,b=byKw.get(kk(x)),n=ref.push(x)-1,
    cs=String(x.lg||"").split(",").filter(Boolean),fl=cs.map(c=>c=="?"?"🌐?":lflag(c)).join(" "),
    lt=fl?" · "+fl:(b&&b.lang_mode&&b.lang_mode!="off"?" · 🌐 sin detectar":"");
   return`<div class="pin${vd?" sd":""}"><a href="${esc(safe(x.u)||"#")}" target="_blank" rel="noopener"><div class="ph${im?"":" noimg"}">${im?`<img loading="lazy" referrerpolicy="no-referrer" alt="" src="${esc(im)}" onerror="this.parentNode.classList.add('noimg');this.remove()">`:""}
-  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span>${nw?'<span class="nw">NUEVO</span>':""}${x.st=="sold"?'<div class="sdl"><span>VENDIDO</span></div>':x.st=="gone"?'<div class="sdl"><span class="gn">NO DISPONIBLE</span></div>':x.st=="reserved"?'<span class="rs">RESERVADO</span>':""}</div>
-  <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}${lt}</small></div></a><button class="xb" title="Quitar de novedades" aria-label="Quitar de novedades" onclick="delItem(${n})">🗑</button></div>`};
- const L=pool.filter(x=>(!fKw||kk(x)==fKw)&&(A||!fPl||x.p==fPl)&&!(hideSold&&sd(x))),cur=[],old=new Map();
+  <span class="pr">${(+x.pr).toFixed(2).replace(/\.00$/,"")}€${x.pa?`<s>${(+x.pa).toFixed(2).replace(/\.00$/,"")}€</s>`:""}</span><span class="pl ${w?"pw":"pv"}">${w?"Wallapop":"Vinted"}</span><div class="tg">${nw?'<span class="nw">NUEVO</span>':""}${x.ch?`<span class="cho" title="${+x.ch}% por debajo de la mediana (${Math.round(+x.md||0)}€)">🔥 −${+x.ch}%</span>`:""}${x.pa?`<span class="baj" title="Antes ${+x.pa}€">📉 −${Math.round((1-x.pr/x.pa)*100)}%</span>`:""}</div>${x.st=="sold"?'<div class="sdl"><span>VENDIDO</span></div>':x.st=="gone"?'<div class="sdl"><span class="gn">NO DISPONIBLE</span></div>':x.st=="reserved"?'<span class="rs">RESERVADO</span>':""}</div>
+  <div class="pb"><b>${esc(x.n)}</b><small>${esc(x.kw)} · ${ago(x.t)}${lt}</small></div></a>${F?"":`<button class="xb" title="Quitar de novedades" aria-label="Quitar de novedades" onclick="delItem(${n})">🗑</button>`}<button class="fvb${favSet.has(x.u)?" on":""}${F?" solo":""}" title="${favSet.has(x.u)?"Quitar de favoritos":"Guardar en favoritos"}" aria-label="Favorito" onclick="toggleFav(${n})">${favSet.has(x.u)?"★":"☆"}</button></div>`};
+ const L=pool.filter(x=>(!fKw||kk(x)==fKw)&&(A||F||!fPl||x.p==fPl)&&!(hideSold&&sd(x))&&(!fSp||(fSp=="ch"?x.ch:x.pa))&&qOk(x)),cur=[],old=new Map();
  for(const x of L){const b=byKw.get(kk(x));
-  if(A||!b||!x.f||x.f==fKey(b))cur.push(x);
+  if(A||F||!b||!x.f||x.f==fKey(b))cur.push(x);
   else{const k=kk(x)+"\u0001"+x.f;if(!old.has(k))old.set(k,{kw:x.kw,f:x.f,it:[]});old.get(k).it.push(x)}}
- $("#grid").innerHTML=cur.length?cols(cur.map(pin)):old.size?"":'<div class="card empty" style="column-span:all"><div class="big">'+(A?"🗄":"✨")+'</div><b>'+(A?"Nada archivado":"Aún no hay novedades")+'</b><br>'+(A?"Aquí van los anuncios de los bots que borres.":"Cuando el bot encuentre anuncios aparecerán aquí.")+'</div>';
+ cur.sort(cmpSo);old.forEach(g=>g.it.sort(cmpSo));
+ const em=pool.length?["🔍","Sin resultados","Prueba con otra búsqueda o quita algún filtro."]:F?["⭐","Aún no tienes favoritos","Toca la ☆ de un anuncio para guardarlo aquí."]:A?["🗄","Nada archivado","Aquí van los anuncios de los bots que borres."]:["✨","Aún no hay novedades","Cuando el bot encuentre anuncios aparecerán aquí."];
+ $("#grid").innerHTML=cur.length?cols(cur.map(pin)):old.size?"":'<div class="card empty"><div class="big">'+em[0]+'</div><b>'+em[1]+'</b><br>'+em[2]+'</div>';
  $("#old").innerHTML=[...old.values()].map(g=>`<div class="oh">🕘 <b>${esc(g.kw)}</b> · bot anterior<small>${esc(fLabel(g.f))}</small></div><div class="grid">${cols(g.it.map(pin))}</div>`).join("")}
 async function saveFeed(items){const b={message:"limpiar novedades [skip ci]",content:btoa(unescape(encodeURIComponent(JSON.stringify({items}))))};if(feedSha)b.sha=feedSha;
  const r=await fetch(apiF(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
