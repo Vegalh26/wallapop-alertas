@@ -48,7 +48,8 @@ main.wide{max-width:1100px}
 .fl{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.fl::-webkit-scrollbar{display:none}
 .fl button{min-height:36px;padding:0 14px;border-radius:99px;font-size:13px;white-space:nowrap;background:var(--card);color:var(--mut);border:1px solid var(--bd);box-shadow:none}
 .fl button.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
-.grid{column-count:2;column-gap:12px}@media(min-width:760px){.grid{column-count:3}}@media(min-width:1000px){.grid{column-count:4}}
+.grid{--cols:2;display:flex;align-items:flex-start;gap:12px}.grid>.col{flex:1 1 0;min-width:0}.grid>.empty{flex:1 1 100%}
+@media(min-width:760px){.grid{--cols:3}}@media(min-width:1000px){.grid{--cols:4}}
 .pin{position:relative;break-inside:avoid;margin-bottom:12px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--bd);display:block;color:inherit;text-decoration:none;box-shadow:var(--sh);transition:.15s}
 .pin>a{display:block;color:inherit;text-decoration:none;font-size:inherit}
 .pin:active{transform:scale(.98)}@media(hover:hover){.pin:hover{transform:translateY(-3px)}}
@@ -87,9 +88,9 @@ main.wide{max-width:1100px}
  .fgrid{grid-template-columns:1fr 1fr}.fgrid .kw{grid-column:1/-1}
  .form{position:sticky;top:28px;margin:0}
  #list{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
- .grid{column-count:4;column-gap:16px}.pin{margin-bottom:16px}
+ .grid{--cols:4;gap:16px}.pin{margin-bottom:16px}
 }
-@media(min-width:1500px){.grid{column-count:5}}
+@media(min-width:1500px){.grid{--cols:5}}
 
 /* ===== modal de confirmación ===== */
 .mod{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:rgba(10,12,15,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:mf .15s}
@@ -239,6 +240,13 @@ function fKey(b){const on=b.lang_mode&&b.lang_mode!="off"&&(b.langs||[]).length,
 function fLabel(f){const [mn,mx,src,lg,ex]=String(f).split("|"),[m,ls]=(lg||"off:").split(":");
  const lt=m!="off"&&ls?(m=="solo"?"Solo ":"Sin ")+ls.split(",").map(lname).join(", "):"";
  return mn+"€ – "+(+mx>=1000?"sin límite":mx+"€")+" · "+(SRCN[src]||src)+(lt?" · "+lt:"")+(ex?" · sin: "+ex.split(",").join(", "):"")}
+/* Reparte las tarjetas en columnas EN ORDEN: la 1ª a la columna 1, la 2ª a la 2... y así vuelve a empezar.
+   Así lo más nuevo queda en la fila de arriba, de izquierda a derecha (con column-count iba de arriba a abajo). */
+let lastCols=0,rt;
+function nCols(){const v=parseInt(getComputedStyle($("#grid")).getPropertyValue("--cols"));return v>0?v:2}
+function cols(arr){const n=lastCols=nCols(),c=Array.from({length:n},()=>[]);arr.forEach((h,i)=>c[i%n].push(h));
+ return c.map(a=>`<div class="col">${a.join("")}</div>`).join("")}
+addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>{if(lastCols&&nCols()!=lastCols)renderFeed()},200)});
 function renderFeed(){const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.toLowerCase(),b])),kk=x=>String(x.kw).toLowerCase(),
   isA=x=>cfgOk&&!byKw.has(kk(x)),arch=feed.filter(isA),live=feed.filter(x=>!isA(x));
  const pool=A?arch:live,kws=[...new Set(pool.map(kk))],nm={};pool.forEach(x=>{nm[kk(x)]=nm[kk(x)]||x.kw});
@@ -261,8 +269,8 @@ function renderFeed(){const A=tab=="arch",byKw=new Map(cfg.map(b=>[b.keywords.to
  for(const x of L){const b=byKw.get(kk(x));
   if(A||!b||!x.f||x.f==fKey(b))cur.push(x);
   else{const k=kk(x)+"\u0001"+x.f;if(!old.has(k))old.set(k,{kw:x.kw,f:x.f,it:[]});old.get(k).it.push(x)}}
- $("#grid").innerHTML=cur.length?cur.map(pin).join(""):old.size?"":'<div class="card empty" style="column-span:all"><div class="big">'+(A?"🗄":"✨")+'</div><b>'+(A?"Nada archivado":"Aún no hay novedades")+'</b><br>'+(A?"Aquí van los anuncios de los bots que borres.":"Cuando el bot encuentre anuncios aparecerán aquí.")+'</div>';
- $("#old").innerHTML=[...old.values()].map(g=>`<div class="oh">🕘 <b>${esc(g.kw)}</b> · bot anterior<small>${esc(fLabel(g.f))}</small></div><div class="grid">${g.it.map(pin).join("")}</div>`).join("")}
+ $("#grid").innerHTML=cur.length?cols(cur.map(pin)):old.size?"":'<div class="card empty" style="column-span:all"><div class="big">'+(A?"🗄":"✨")+'</div><b>'+(A?"Nada archivado":"Aún no hay novedades")+'</b><br>'+(A?"Aquí van los anuncios de los bots que borres.":"Cuando el bot encuentre anuncios aparecerán aquí.")+'</div>';
+ $("#old").innerHTML=[...old.values()].map(g=>`<div class="oh">🕘 <b>${esc(g.kw)}</b> · bot anterior<small>${esc(fLabel(g.f))}</small></div><div class="grid">${cols(g.it.map(pin))}</div>`).join("")}
 async function saveFeed(items){const b={message:"limpiar novedades [skip ci]",content:btoa(unescape(encodeURIComponent(JSON.stringify({items}))))};if(feedSha)b.sha=feedSha;
  const r=await fetch(apiF(),{method:"PUT",headers:hd(),body:JSON.stringify(b)});
  if(!r.ok){msg("No se pudo guardar ("+r.status+"). Recargando…",1);await loadFeed(true);return false}
