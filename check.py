@@ -72,6 +72,24 @@ def _sin_acentos(t):
     return "".join(c for c in t if not unicodedata.combining(c))
 
 
+def _norm_busq(t):
+    """Minúsculas, sin acentos y con todo lo que no sea letra o número convertido en espacio ('Banana-Fish' -> 'banana fish')."""
+    return re.sub(r"[^a-z0-9]+", " ", _sin_acentos(t)).strip()
+
+
+def coincide(keywords, titulo):
+    """¿Contiene el título TODAS las palabras de la búsqueda? En cualquier orden y sin importar mayúsculas, acentos
+    ni guiones: 'nendoroid banana fish' encuentra 'Banana Fish Nendoroid Ash'.
+    Las palabras de 4 letras o más pueden estar dentro de otra ('mario' en 'Supermario'); las cortas ('ds', 'ps5')
+    tienen que empezar una palabra, para que 'ds' no coincida con 'kids'. Un plural también vale ('nendoroids')."""
+    t = " " + _norm_busq(titulo)
+    for w in _norm_busq(keywords).split():
+        variantes = {w, w[:-1]} if w.endswith("s") and len(w) > 3 else {w}
+        if not any((v in t) if len(v) >= 4 else (" " + v in t) for v in variantes):
+            return False
+    return True
+
+
 # En la descripción se ignoran los nombres de país: suelen ser avisos de envío ("no envío a Italia").
 _PAISES = re.compile(r"\b(?:italia|italy|france|francia|germany|alemania|portugal|japan|japon|spain|uk)\b")
 
@@ -645,7 +663,7 @@ def buscar(keywords, min_price, max_price):
     for item in _wallapop_items(keywords, min_price, max_price):
         content = item.get("content", item)
         titulo = content.get("title", "")
-        if keywords.lower() not in titulo.lower():
+        if not coincide(keywords, titulo):
             continue
         price_obj = content.get("price", {})
         precio = float(
@@ -727,7 +745,7 @@ def buscar_vinted(keywords, min_price, max_price):
     out = []
     for it in _vinted_items(keywords, min_price, max_price):
         titulo = it.get("title", "")
-        if keywords.lower() not in titulo.lower():
+        if not coincide(keywords, titulo):
             continue
         pr = it.get("price", 0)
         try:
