@@ -298,6 +298,13 @@ palabras que no existen en español (*professeur*, *gioco*, *und*...), apóstrof
 - Es una **aproximación**: un título en inglés de un juego que se vende igual en España puede colarse, y una descripción rara puede confundir al detector.
   Con el filtro activo, cada aviso de Telegram indica el idioma detectado y cada tarjeta del panel lleva su bandera (o *sin detectar*), para que veas qué ha pensado el filtro.
 
+### Cómo se buscan las palabras
+
+El título del anuncio tiene que contener **todas** las palabras de la búsqueda, **en cualquier orden**: `nendoroid banana fish` encuentra
+«Banana Fish Nendoroid Ash». No importan las mayúsculas, los acentos ni los guiones (`Banana-Fish` vale). Las palabras de 4 letras o más
+pueden ir dentro de otra (`mario` encuentra «Supermario») y también valen en plural (`nendoroids`). Las muy cortas (`ds`, `ps5`) tienen que
+empezar una palabra, para que `ds` no coincida con «kids». Si quieres una búsqueda más amplia, usa menos palabras.
+
 ### Palabras excluidas
 
 Si el **título o la descripción** contienen alguna de las palabras, el anuncio se ignora.
