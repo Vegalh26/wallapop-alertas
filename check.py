@@ -14,10 +14,12 @@ import json
 import os
 import re
 import signal
+import threading
 import sys
 import time
 import unicodedata
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -33,7 +35,7 @@ CFG_FILE = DATA_DIR / "config.json"    # bots definidos (lo editan el panel web 
 STATE_FILE = DATA_DIR / "state.json"   # anuncios ya vistos, offset de Telegram...
 REPO = os.environ.get("GITHUB_REPOSITORY", "")
 GH_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status", "source", "lang_mode", "langs", "exclude")
+CFG_KEYS = ("id", "keywords", "min_price", "max_price", "status", "source", "lang_mode", "langs", "exclude", "fast")
 FUENTES = ("wallapop", "vinted", "ambos")
 VINTED_TLD = os.environ.get("VINTED_TLD", "es")
 
@@ -329,6 +331,7 @@ def bot_text(b):
         f"🤖 <b>{esc(b['keywords'])}</b>\n"
         f"💰 {b['min_price']}€ – {fmt_max(b['max_price'])}\n"
         f"🔎 {ETIQ.get(b.get('source', 'ambos'))}\n"
+        f"{'⚡ Rápido (prioridad)' + chr(10) if b.get('fast') else ''}"
         f"{filtro_txt(b)}{excl_txt(b)}Estado: {emoji} {b['status']}"
     )
 
@@ -546,6 +549,50 @@ def _primera_url(x):
     return ""
 
 
+# ---------- Hora de publicación y retraso de detección ----------
+# Si la plataforma indica CUÁNDO se publicó un anuncio, el aviso dice "publicado hace 40 s" y el panel mide cuánto
+# tardamos en verlo. Los nombres de los campos no están documentados: se prueban varios y solo se acepta una fecha
+# creíble. 'python check.py --campos "texto"' enseña qué campos de tiempo trae de verdad cada plataforma.
+_CLAVES_PUB = ("created_at", "creation_date", "creationDate", "created", "publish_date", "publication_date",
+               "published_at", "created_at_ts", "first_published_at")
+
+
+def _epoch(v):
+    """Epoch en segundos desde un número (s o ms) o un texto ISO 8601; None si no es una fecha creíble."""
+    try:
+        if v is None or isinstance(v, bool):
+            return None
+        if isinstance(v, (int, float)):
+            t = float(v)
+        elif isinstance(v, str):
+            t = float(v) if v.replace(".", "", 1).isdigit() else datetime.fromisoformat(v.replace("Z", "+00:00")).timestamp()
+        else:
+            return None
+        if t > 1e12:
+            t /= 1000  # milisegundos
+        return t if 1.4e9 < t < time.time() + 600 else None
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+def hora_pub(obj):
+    """(epoch, campo) de publicación del anuncio, o (None, '') si la respuesta no la trae."""
+    if not isinstance(obj, dict):
+        return None, ""
+    for k in _CLAVES_PUB:
+        t = _epoch(obj.get(k))
+        if t:
+            return t, k
+    hr = (obj.get("photo") or {}).get("high_resolution") if isinstance(obj.get("photo"), dict) else None
+    t = _epoch(hr.get("timestamp")) if isinstance(hr, dict) else None  # Vinted: la foto se sube al publicar
+    return (t, "photo.timestamp") if t else (None, "")
+
+
+def _edad(seg):
+    seg = int(seg)
+    return f"{seg} s" if seg < 90 else _dur(seg)
+
+
 def generar_key(nombre, precio, plat="Wallapop"):
     pre = "" if plat == "Wallapop" else plat + "|"  # las claves de Wallapop no cambian
     return hashlib.md5(f"{pre}{nombre}-{precio}".encode()).hexdigest()
@@ -555,8 +602,8 @@ def key_de(r):
     return generar_key(r["nombre"], r["precio"], r.get("plat", "Wallapop"))
 
 
-def buscar(keywords, min_price, max_price):
-    """Lanza excepción si la API falla (así no confundimos 'error' con 'sin resultados')."""
+def _wallapop_items(keywords, min_price, max_price):
+    """Anuncios en bruto de Wallapop. Lanza excepción si la API falla (así no confundimos 'error' con 'sin resultados')."""
     params = {
         "source": "search_box",
         "keywords": keywords,
@@ -589,9 +636,13 @@ def buscar(keywords, min_price, max_price):
     items = extraer_items(data)
     if not items:
         print("Respuesta sin anuncios. Claves:", list(data.keys())[:10], "->", str(data)[:300])
+    return items
 
+
+def buscar(keywords, min_price, max_price):
+    """Anuncios de Wallapop ya procesados."""
     resultados = []
-    for item in items:
+    for item in _wallapop_items(keywords, min_price, max_price):
         content = item.get("content", item)
         titulo = content.get("title", "")
         if keywords.lower() not in titulo.lower():
@@ -605,7 +656,11 @@ def buscar(keywords, min_price, max_price):
         if max_price < SIN_LIMITE and precio > max_price:
             continue
         slug = content.get("web_slug") or content.get("slug") or content.get("id")
+        pub, pk = hora_pub(content)
+        if not pub:
+            pub, pk = hora_pub(item)
         resultados.append({
+            **({"pub": pub, "pub_k": pk} if pub else {}),
             "nombre": titulo,
             "precio": precio,
             "enlace": f"https://es.wallapop.com/item/{slug}",
@@ -620,19 +675,24 @@ def buscar(keywords, min_price, max_price):
 _vinted = {"s": None, "t": 0}
 
 
+_vinted_lock = threading.Lock()  # las consultas van en paralelo: una sola crea la sesión
+
+
 def _vinted_sesion():
-    if _vinted["s"] and time.time() - _vinted["t"] < 1800:
-        return _vinted["s"]
-    s = requests.Session()
-    s.headers.update({"User-Agent": HEADERS["User-Agent"], "Accept-Language": "es-ES,es;q=0.9"})
-    r = s.get(f"https://www.vinted.{VINTED_TLD}/", timeout=20)
-    r.raise_for_status()
-    s.anon = r.headers.get("X-Anon-Id", "")
-    _vinted.update(s=s, t=time.time())
-    return s
+    with _vinted_lock:
+        if _vinted["s"] and time.time() - _vinted["t"] < 1800:
+            return _vinted["s"]
+        s = requests.Session()
+        s.headers.update({"User-Agent": HEADERS["User-Agent"], "Accept-Language": "es-ES,es;q=0.9"})
+        r = s.get(f"https://www.vinted.{VINTED_TLD}/", timeout=20)
+        r.raise_for_status()
+        s.anon = r.headers.get("X-Anon-Id", "")
+        _vinted.update(s=s, t=time.time())
+        return s
 
 
-def buscar_vinted(keywords, min_price, max_price):
+def _vinted_items(keywords, min_price, max_price):
+    """Anuncios en bruto de Vinted."""
     base = f"https://www.vinted.{VINTED_TLD}"
     params = {"search_text": keywords, "order": "newest_first", "per_page": 24, "page": 1}
     if min_price > 0:
@@ -659,9 +719,13 @@ def buscar_vinted(keywords, min_price, max_price):
         print("Respuesta de Vinted:", resp.status_code, resp.text[:200])
         resp.raise_for_status()
 
-    items = _buscar_lista_items(resp.json())
+    return _buscar_lista_items(resp.json())
+
+
+def buscar_vinted(keywords, min_price, max_price):
+    base = f"https://www.vinted.{VINTED_TLD}"
     out = []
-    for it in items:
+    for it in _vinted_items(keywords, min_price, max_price):
         titulo = it.get("title", "")
         if keywords.lower() not in titulo.lower():
             continue
@@ -675,7 +739,9 @@ def buscar_vinted(keywords, min_price, max_price):
         enlace = it.get("url") or f"/items/{it.get('id')}"
         if enlace.startswith("/"):  # Vinted a veces devuelve solo la ruta
             enlace = base + enlace
-        out.append({"nombre": titulo, "precio": precio, "plat": "Vinted", "enlace": enlace,
+        pub, pk = hora_pub(it)
+        out.append({**({"pub": pub, "pub_k": pk} if pub else {}),
+                    "nombre": titulo, "precio": precio, "plat": "Vinted", "enlace": enlace,
                     "img": _primera_url(it.get("photo")), "desc": str(it.get("description") or "")[:600]})
     return out
 
@@ -854,23 +920,46 @@ def bloque(i, r, con_idioma=False):
     if r.get("antes"):
         pr += f" (antes {r['antes']:.2f}€, −{round((1 - r['precio'] / r['antes']) * 100)}%)"
     ch = f"\n🔥 {r['chollo']}% por debajo de la mediana de tu rango ({r['mediana']:.0f}€)" if r.get("chollo") else ""
-    return f"{i}. {ic} · 💰 {pr}\n📝 {esc(r['nombre'])}{ch}{idi}\n🔗 {r['enlace']}\n\n"
+    pub = ""
+    if r.get("nuevo") and r.get("pub"):
+        d = time.time() - r["pub"]
+        if 0 <= d <= 86400:
+            pub = f"\n⏱ Publicado hace {_edad(d)}"
+    return f"{i}. {ic} · 💰 {pr}\n📝 {esc(r['nombre'])}{ch}{pub}{idi}\n🔗 {r['enlace']}\n\n"
 
 
-def comprobar_bots(bots, meta):
-    activos = [b for b in bots if b["status"] == "running"]
+def _pedir(t):
+    b, nombre, fn = t
+    try:
+        return fn(b["keywords"], b["min_price"], b["max_price"]), None
+    except Exception as e:
+        return None, e
+
+
+def comprobar_bots(bots, meta, solo_rapidos=False):
+    """Revisa los bots activos. Con solo_rapidos=True solo los marcados como rápidos (y sin avisos de bloqueo)."""
+    activos = [b for b in bots if b["status"] == "running" and (b.get("fast") or not solo_rapidos)]
     ok = 0
     n_err = 0
     stats = {"Wallapop": [0, 0, ""], "Vinted": [0, 0, ""]}  # ok, fallos, último error
     ts = ahora().strftime("%d/%m - %H:%M")
+    # Las consultas a las plataformas salen EN PARALELO: tardar menos en preguntar es tardar menos en avisar.
+    tareas = [(b, n, f) for b in activos for n, f in _fuentes(b)]
+    if len(tareas) > 1:
+        with ThreadPoolExecutor(max_workers=min(8, len(tareas))) as ex:
+            respuestas = list(ex.map(_pedir, tareas))
+    else:
+        respuestas = [_pedir(t) for t in tareas]
+    it_resp = iter(respuestas)
     for b in activos:
         pedidos = _fuentes(b)
         resultados, fallos = [], 0
         for nombre, fn in pedidos:
-            try:
-                resultados += fn(b["keywords"], b["min_price"], b["max_price"])
+            res, e = next(it_resp)
+            if e is None:
+                resultados += res
                 stats[nombre][0] += 1
-            except Exception as e:
+            else:
                 print(f"[{b['keywords']}] Error {nombre}: {e}")
                 stats[nombre][1] += 1
                 stats[nombre][2] = str(e)
@@ -914,6 +1003,12 @@ def comprobar_bots(bots, meta):
                 del precios[k]
         for r in (resultados if primera else novedades + bajadas):
             marcar_chollo(b, r)
+        if not primera:
+            for r in novedades:
+                r["nuevo"] = True  # una novedad de verdad (no la lista inicial ni una bajada): se mide su retraso
+                if r.get("pub") and 0 <= time.time() - r["pub"] <= 86400:
+                    print(f"[{b['keywords']}] ⏱ {r['nombre'][:40]}: publicado hace {_edad(time.time() - r['pub'])}"
+                          f" ({r.get('pub_k')})")
 
         if not b.get("first_done"):
             b["first_done"] = True
@@ -936,10 +1031,11 @@ def comprobar_bots(bots, meta):
                         f"{titulo} — <i>{esc(b['keywords'])}</i>\n📅 {ts}\n{cab}\n",
                         [bloque(i, r, bool(fi)) for i, r in enumerate(lote, 1)],
                     )
-        print(f"[{b['keywords']}] resultados={len(resultados)} nuevos={len(novedades)} bajadas={len(bajadas)}")
+        if not solo_rapidos or novedades or bajadas:  # los bots rápidos no llenan el registro en cada vuelta
+            print(f"[{b['keywords']}] resultados={len(resultados)} nuevos={len(novedades)} bajadas={len(bajadas)}")
 
-    # Avisos de bloqueo, una sola vez por plataforma
-    for nombre, (o, f, ultimo) in stats.items():
+    # Avisos de bloqueo, una sola vez por plataforma (los bots rápidos no los mandan: lo hace la vuelta normal)
+    for nombre, (o, f, ultimo) in ({} if solo_rapidos else stats).items():
         flag = "bloqueado" if nombre == "Wallapop" else "bloqueado_vinted"
         if f and not o:
             if not meta.get(flag):
@@ -975,6 +1071,7 @@ def norm(cfg):
             "lang_mode": modo if langs else "off",
             "langs": langs,
             "exclude": limpiar_excl(c.get("exclude")),
+            "fast": bool(c.get("fast")),
         })
     return out
 
@@ -1050,6 +1147,10 @@ def registrar(b, items):
             it["pa"] = r["antes"]                      # precio anterior (bajada de precio)
         if r.get("chollo"):
             it["ch"], it["md"] = r["chollo"], r["mediana"]  # % bajo la mediana y mediana
+        if r.get("nuevo") and r.get("pub") and 0 <= t - int(r["pub"]) <= 86400:
+            it["pub"] = int(r["pub"])  # cuándo se publicó: el panel mide el retraso de detección (t - pub)
+            if b.get("fast"):
+                it["rp"] = 1
         lote.append(it)
     if lote:
         RES["new"] = lote + RES["new"]
@@ -1220,6 +1321,44 @@ def subir_estado():
         print("Aviso al subir el estado a GitHub:", e)
 
 
+# ---------- Bots rápidos ----------
+# Los bots marcados como rápidos (⚡) se revisan cada FAST_INTERVAL segundos en lugar de cada CHECK_INTERVAL.
+# Esas vueltas rápidas solo hacen lo imprescindible (no releen la configuración ni las estadísticas). Si la
+# plataforma empieza a rechazar peticiones, el ritmo se frena solo (hasta 60 s) y se recupera cuando se calma.
+FAST_INTERVAL = max(1.0, float(os.environ.get("FAST_INTERVAL", "3") or 3))
+_rapido = {"int": FAST_INTERVAL, "buenos": 0, "avisado": False}
+
+
+def iteracion_rapida(bots, meta):
+    ok, err = comprobar_bots(bots, meta, solo_rapidos=True)
+    if RES["new"]:  # solo se escribe cuando hay algo nuevo
+        guardar(bots, meta)
+        try:
+            guardar_recientes(bots)
+        except Exception as e:
+            print("Aviso al guardar novedades:", e)
+    return ok, err
+
+
+def ajustar_rapido(ok, err):
+    r = _rapido
+    if err:
+        r["int"] = min(r["int"] * 2, 60)
+        r["buenos"] = 0
+        if not r["avisado"]:
+            r["avisado"] = True
+            send(f"⚠️ <b>Bots rápidos más lentos</b>: la plataforma está rechazando peticiones, así que los reviso "
+                 f"cada {r['int']:.0f} s hasta que se calme.")
+    else:
+        r["buenos"] += 1
+        if r["buenos"] >= 30 and r["int"] > FAST_INTERVAL:
+            r["int"] = max(FAST_INTERVAL, r["int"] / 2)
+            r["buenos"] = 0
+            if r["int"] <= FAST_INTERVAL and r["avisado"]:
+                r["avisado"] = False
+                send("✅ Los bots rápidos vuelven a su ritmo.")
+
+
 def iteracion(bots, meta):
     if not _stats_ctl["cargadas"]:
         cargar_stats()
@@ -1257,27 +1396,41 @@ def main():
         iteracion(bots, meta)
         return
 
-    print(f"Modo bucle: {LOOP_SECONDS}s, cada {CHECK_INTERVAL}s")
+    print(f"Modo bucle: {LOOP_SECONDS}s, cada {CHECK_INTERVAL}s (bots rápidos: cada {FAST_INTERVAL:g}s)")
     signal.signal(signal.SIGTERM, _al_parar)
     aviso_arranque()
     fin = time.time() + LOOP_SECONDS
     ultimo_sub = time.time()
+    proximo_normal = 0.0
+    bloqueado = False
     try:
         while time.time() < fin:
             t0 = time.time()
+            if t0 >= proximo_normal:  # vuelta normal: todos los bots, config, estadísticas...
+                try:
+                    ok, err = iteracion(bots, meta)
+                except Exception as e:
+                    print("Error en iteración:", e)
+                    ok, err = 0, 1
+                latido()
+                aviso_conexion(ok, err)
+                if time.time() - ultimo_sub > STATE_PUSH_EVERY:
+                    subir_estado()
+                    ultimo_sub = time.time()
+                bloqueado = bool(err and not ok)
+                proximo_normal = t0 + (60 if bloqueado else CHECK_INTERVAL)
+            else:  # vuelta rápida: solo los bots ⚡
+                try:
+                    ok, err = iteracion_rapida(bots, meta)
+                except Exception as e:
+                    print("Error en vuelta rápida:", e)
+                    ok, err = 0, 1
+                ajustar_rapido(ok, err)
+            siguiente = proximo_normal
+            if not bloqueado and any(b.get("fast") and b["status"] == "running" for b in bots):
+                siguiente = min(proximo_normal, t0 + _rapido["int"])
             try:
-                ok, err = iteracion(bots, meta)
-            except Exception as e:
-                print("Error en iteración:", e)
-                ok, err = 0, 1
-            latido()
-            aviso_conexion(ok, err)
-            if time.time() - ultimo_sub > STATE_PUSH_EVERY:
-                subir_estado()
-                ultimo_sub = time.time()
-            pausa = 60 if (err and not ok) else CHECK_INTERVAL
-            try:
-                esperar_comandos(bots, meta, min(t0 + pausa, fin))
+                esperar_comandos(bots, meta, min(siguiente, fin))
             except Exception as e:
                 print("Error escuchando Telegram:", e)
                 time.sleep(5)
@@ -1292,5 +1445,51 @@ def main():
     subir_estado()
 
 
+_RX_TIEMPO = re.compile(r"date|time|creat|publi|modif|updat|_at$|^ts$|_ts$|fecha|hora|age$", re.I)
+
+
+def _campos_tiempo(obj, ruta="", prof=0, out=None):
+    out = [] if out is None else out
+    if prof > 4:
+        return out
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            r = f"{ruta}.{k}" if ruta else str(k)
+            if isinstance(v, (dict, list)):
+                _campos_tiempo(v, r, prof + 1, out)
+            elif _RX_TIEMPO.search(str(k)):
+                out.append((r, v))
+    elif isinstance(obj, list) and obj:
+        _campos_tiempo(obj[0], ruta + "[0]", prof + 1, out)
+    return out
+
+
+def campos(texto):
+    """python check.py --campos "layton": para los primeros anuncios de cada plataforma enseña los campos de TIEMPO
+    que trae la respuesta y cuál se usa como hora de publicación (para saber si se puede medir el retraso)."""
+    for nombre, fn in (("Wallapop", _wallapop_items), ("Vinted", _vinted_items)):
+        print(f"\n===== {nombre} =====")
+        try:
+            items = fn(texto, 0, SIN_LIMITE)
+        except Exception as e:
+            print("  error:", e)
+            continue
+        print(f"  {len(items)} anuncios recibidos")
+        for it in items[:4]:
+            c = it.get("content", it) if isinstance(it, dict) else {}
+            print("\n  •", str(c.get("title", ""))[:60])
+            for ruta, v in _campos_tiempo(it):
+                t = _epoch(v)
+                print(f"      {ruta} = {str(v)[:40]}" + (f"   → hace {_edad(time.time() - t)}" if t else ""))
+            pub, pk = hora_pub(c)
+            if not pub:
+                pub, pk = hora_pub(it)
+            print("      ⇒ hora de publicación que se usaría:",
+                  f"{pk} (hace {_edad(time.time() - pub)})" if pub else "NINGUNA (no hay un campo reconocible)")
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) >= 3 and sys.argv[1] == "--campos":
+        campos(" ".join(sys.argv[2:]))
+    else:
+        main()
