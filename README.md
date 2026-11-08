@@ -7,6 +7,7 @@ Le dices qué buscas (por ejemplo *"layton"*, entre 0 y 25 €) y el bot te avis
 - 💰 Filtro de precio mínimo y máximo.
 - 🌐 Filtro de **idioma**: ver solo los anuncios en un idioma, o excluir idiomas (por ejemplo, no quiero la versión italiana ni la francesa).
 - 🚫 **Palabras excluidas**: ignora los anuncios que contengan las palabras que tú elijas ("solo caja", "réplica"...).
+- ⚡ **Bots rápidos**: los que marques se revisan cada pocos segundos, y se mide el retraso real de detección.
 - 📉 **Bajadas de precio**: si un anuncio que ya viste se abarata, te avisa con el precio anterior y el porcentaje.
 - 🔥 **Chollos**: marca los anuncios nuevos con un precio muy por debajo de la mediana de los de tu rango de precio.
 - 📊 **Pestaña de estadísticas con gráficos**: precio medio y mediana del mercado *sin límite de precio* y dentro de tu rango, distribución, evolución y actividad.
@@ -331,6 +332,31 @@ Cuando el bot ve un anuncio por segunda vez lo reconoce por su **enlace**, así 
   Hace falta que el bot tenga estadísticas con 8 anuncios o más dentro de tu rango, y se ignoran los anuncios de menos de 0,50 €.
   Los chips **🔥 Chollos** y **📉 Bajadas** del panel filtran solo esos anuncios.
 
+### ⚡ Bots rápidos y velocidad de detección
+
+Cuando alguien tiene compra automática, un anuncio puede desaparecer a los pocos segundos. Para no llegar tarde:
+
+- **⚡ Bot rápido**: en el formulario de un bot marca *Bot rápido (prioridad)*. Esos bots se revisan cada `FAST_INTERVAL` segundos (**3 por defecto**,
+  mínimo 1) en lugar de cada `CHECK_INTERVAL`. Las vueltas rápidas solo consultan lo imprescindible, así que son ligeras. Se pueden marcar varios.
+- **Freno automático**: pedir tantas veces puede hacer que Wallapop o Vinted te bloqueen. Si empiezan a rechazar peticiones, los bots rápidos se
+  frenan solos (hasta una vez por minuto), te avisan por Telegram y recuperan su ritmo cuando se calma. Con `FAST_INTERVAL=1` el riesgo es mayor:
+  pruébalo con uno o dos bots y mira que no te llegan avisos de frenado.
+- **Consultas en paralelo**: todas las peticiones de una vuelta salen a la vez, así que cada vuelta tarda lo que tarda la más lenta.
+
+**Medir el retraso real.** Si la plataforma indica cuándo se publicó un anuncio, el aviso de Telegram añade `⏱ Publicado hace 40 s`, cada tarjeta del
+panel muestra `⏱` con el tiempo que tardó el bot en verlo, y la pestaña **Estadísticas** dibuja cuántos se ven en menos de 10 s, 30 s, 1 min…,
+comparando los bots ⚡ con los normales. Solo se mide con anuncios nuevos (no con la lista inicial ni con bajadas de precio).
+Ese retraso suma lo que tarda la propia plataforma en mostrar el anuncio en las búsquedas más lo que tarda el bot en preguntar: el de los bots rápidos
+te dice cuánto es lo mínimo que se puede conseguir. Para comprobar qué campos de fecha devuelve cada plataforma:
+
+```bash
+cd ~/wallapop-alertas
+set -a; . ~/wallapop.env; set +a
+./venv/bin/python check.py --campos "layton"
+```
+
+Para cada anuncio enseña los campos de tiempo que trae la respuesta y cuál se usaría como hora de publicación (o `NINGUNA` si no hay ninguno reconocible).
+
 ### 📊 Pestaña Estadísticas
 
 Una pestaña propia del panel, con gráficos. Arriba eliges **Resumen** o un bot concreto.
@@ -419,6 +445,7 @@ Se definen como *secrets* (Actions) o en `~/wallapop.env` (opción B).
 | `VINTED_TLD` | | `es` | Dominio de Vinted (`es`, `fr`, `it`, `de`...). |
 | `CHOLLO_PCT` | | `40` | Porcentaje por debajo de la mediana para marcar un chollo. `0` lo desactiva. |
 | `BAJADA_MIN_EUR`, `BAJADA_MIN_PCT` | | `1`, `5` | Lo mínimo que tiene que bajar un anuncio (en € y en %) para avisar de la bajada. |
+| `FAST_INTERVAL` | | `3` | Segundos entre vueltas de los bots ⚡ (mínimo 1). Se frena solo si la plataforma rechaza peticiones. |
 | `STATS_EVERY` | | `21600` | Segundos entre recálculos de las estadísticas de cada bot (6 h). |
 | `STATE_PUSH_EVERY` | | `900` | Segundos entre copias de `state.json` al repo (también se copia al parar). |
 | `AVISOS_ESTADO` | | `0` | `1` = avisos por Telegram al arrancar, detenerse y recuperar la conexión. |
