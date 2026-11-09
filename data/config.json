@@ -98,5 +98,17 @@
     "langs": [],
     "exclude": [],
     "fast": false
+  },
+  {
+    "id": "s4yvps3w",
+    "status": "running",
+    "keywords": "Yona cofre",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
