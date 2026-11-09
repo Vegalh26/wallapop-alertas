@@ -1,21 +1,22 @@
 [
   {
     "id": "02sl51t3",
-    "status": "running",
     "keywords": "banana fish nendoroid",
     "min_price": 0,
     "max_price": 1000,
+    "status": "running",
     "source": "ambos",
     "lang_mode": "off",
     "langs": [],
-    "exclude": []
+    "exclude": [],
+    "fast": false
   },
   {
     "id": "gz5h9wdz",
-    "status": "running",
     "keywords": "layton",
     "min_price": 0,
     "max_price": 25,
+    "status": "running",
     "source": "ambos",
     "lang_mode": "solo",
     "langs": [
@@ -23,14 +24,15 @@
     ],
     "exclude": [
       "jean*"
-    ]
+    ],
+    "fast": false
   },
   {
     "id": "6ryt0uzn",
-    "status": "running",
     "keywords": "jamboree",
     "min_price": 0,
     "max_price": 30,
+    "status": "paused",
     "source": "ambos",
     "lang_mode": "off",
     "langs": [],
@@ -44,23 +46,24 @@
   },
   {
     "id": "nsjjqpqf",
-    "status": "running",
     "keywords": "yona 27",
     "min_price": 0,
     "max_price": 1000,
+    "status": "running",
     "source": "ambos",
     "lang_mode": "solo",
     "langs": [
       "es"
     ],
-    "exclude": []
+    "exclude": [],
+    "fast": false
   },
   {
     "id": "6h98fdoy",
-    "status": "running",
     "keywords": "ace attorney",
     "min_price": 0,
     "max_price": 30,
+    "status": "running",
     "source": "ambos",
     "lang_mode": "solo",
     "langs": [
@@ -69,28 +72,31 @@
     "exclude": [
       "cards",
       "cartes"
-    ]
+    ],
+    "fast": false
   },
   {
     "id": "xtlo9ycu",
-    "status": "running",
     "keywords": "peluche pusheen",
     "min_price": 0,
     "max_price": 1000,
+    "status": "running",
     "source": "ambos",
     "lang_mode": "off",
     "langs": [],
-    "exclude": []
+    "exclude": [],
+    "fast": false
   },
   {
     "id": "q7hwjhmw",
-    "status": "running",
     "keywords": "Moondrop Robin",
     "min_price": 0,
     "max_price": 1000,
+    "status": "running",
     "source": "ambos",
     "lang_mode": "off",
     "langs": [],
-    "exclude": []
+    "exclude": [],
+    "fast": false
   }
 ]
