@@ -80,7 +80,7 @@
     "keywords": "peluche pusheen",
     "min_price": 0,
     "max_price": 1000,
-    "status": "running",
+    "status": "paused",
     "source": "ambos",
     "lang_mode": "off",
     "langs": [],
