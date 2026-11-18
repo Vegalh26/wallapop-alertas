@@ -55,5 +55,17 @@
     "langs": [],
     "exclude": [],
     "fast": false
+  },
+  {
+    "id": "vig65tbw",
+    "status": "running",
+    "keywords": "Layton caja",
+    "min_price": 0,
+    "max_price": 25,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": true
   }
 ]
