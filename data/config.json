@@ -45,20 +45,6 @@
     "fast": true
   },
   {
-    "id": "nsjjqpqf",
-    "keywords": "yona 27",
-    "min_price": 0,
-    "max_price": 1000,
-    "status": "running",
-    "source": "ambos",
-    "lang_mode": "solo",
-    "langs": [
-      "es"
-    ],
-    "exclude": [],
-    "fast": false
-  },
-  {
     "id": "6h98fdoy",
     "keywords": "ace attorney",
     "min_price": 0,
