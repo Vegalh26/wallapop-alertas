@@ -87,5 +87,17 @@
     "langs": [],
     "exclude": [],
     "fast": false
+  },
+  {
+    "id": "cuuq7jm5",
+    "status": "running",
+    "keywords": "Layton",
+    "min_price": 0,
+    "max_price": 25,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
