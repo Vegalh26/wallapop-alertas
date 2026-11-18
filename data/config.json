@@ -76,18 +76,6 @@
     "fast": false
   },
   {
-    "id": "xtlo9ycu",
-    "keywords": "peluche pusheen",
-    "min_price": 0,
-    "max_price": 1000,
-    "status": "paused",
-    "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
-    "exclude": [],
-    "fast": false
-  },
-  {
     "id": "q7hwjhmw",
     "keywords": "Moondrop Robin",
     "min_price": 0,
