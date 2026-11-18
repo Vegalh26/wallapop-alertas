@@ -28,23 +28,6 @@
     "fast": false
   },
   {
-    "id": "6ryt0uzn",
-    "keywords": "jamboree",
-    "min_price": 0,
-    "max_price": 30,
-    "status": "paused",
-    "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
-    "exclude": [
-      "scout*",
-      "cd",
-      "rock",
-      "rap"
-    ],
-    "fast": true
-  },
-  {
     "id": "6h98fdoy",
     "keywords": "ace attorney",
     "min_price": 0,
