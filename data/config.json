@@ -12,22 +12,6 @@
     "fast": false
   },
   {
-    "id": "gz5h9wdz",
-    "keywords": "layton",
-    "min_price": 0,
-    "max_price": 25,
-    "status": "running",
-    "source": "ambos",
-    "lang_mode": "solo",
-    "langs": [
-      "es"
-    ],
-    "exclude": [
-      "jean*"
-    ],
-    "fast": false
-  },
-  {
     "id": "6h98fdoy",
     "keywords": "ace attorney",
     "min_price": 0,
