@@ -67,5 +67,17 @@
     "langs": [],
     "exclude": [],
     "fast": true
+  },
+  {
+    "id": "0cwoydvg",
+    "status": "running",
+    "keywords": "Layton máscara",
+    "min_price": 0,
+    "max_price": 25,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
