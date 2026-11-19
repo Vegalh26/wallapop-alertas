@@ -97,7 +97,13 @@
     "source": "ambos",
     "lang_mode": "off",
     "langs": [],
-    "exclude": [],
+    "exclude": [
+      "curius",
+      "village",
+      "villa",
+      "llamada",
+      "espectro"
+    ],
     "fast": false
   }
 ]
