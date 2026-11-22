@@ -112,5 +112,17 @@
       "jean*"
     ],
     "fast": false
+  },
+  {
+    "id": "0ukbb3ke",
+    "status": "running",
+    "keywords": "Ace layton",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
