@@ -12,23 +12,6 @@
     "fast": false
   },
   {
-    "id": "6h98fdoy",
-    "keywords": "ace attorney",
-    "min_price": 0,
-    "max_price": 30,
-    "status": "running",
-    "source": "ambos",
-    "lang_mode": "solo",
-    "langs": [
-      "es"
-    ],
-    "exclude": [
-      "cards",
-      "cartes"
-    ],
-    "fast": false
-  },
-  {
     "id": "q7hwjhmw",
     "keywords": "Moondrop Robin",
     "min_price": 0,
