@@ -95,5 +95,17 @@
     "langs": [],
     "exclude": [],
     "fast": false
+  },
+  {
+    "id": "ek8hfx7q",
+    "status": "running",
+    "keywords": "Another code",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
