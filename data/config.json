@@ -124,25 +124,5 @@
     "langs": [],
     "exclude": [],
     "fast": false
-  },
-  {
-    "id": "i7yv3fqa",
-    "status": "running",
-    "keywords": "Phoenix Wright",
-    "min_price": 0,
-    "max_price": 30,
-    "source": "ambos",
-    "lang_mode": "excluir",
-    "langs": [
-      "fr",
-      "it",
-      "pt",
-      "de",
-      "jp"
-    ],
-    "exclude": [
-      "layton"
-    ],
-    "fast": false
   }
 ]
