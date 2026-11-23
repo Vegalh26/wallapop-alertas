@@ -101,7 +101,7 @@
     "status": "running",
     "keywords": "Another code",
     "min_price": 0,
-    "max_price": 1000,
+    "max_price": 20,
     "source": "ambos",
     "lang_mode": "off",
     "langs": [],
