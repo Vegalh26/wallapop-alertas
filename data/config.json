@@ -179,5 +179,17 @@
     "langs": [],
     "exclude": [],
     "fast": false
+  },
+  {
+    "id": "28w0cs2p",
+    "status": "running",
+    "keywords": "Blue Spring Ride cofre",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
