@@ -143,5 +143,17 @@
     "langs": [],
     "exclude": [],
     "fast": false
+  },
+  {
+    "id": "ellp8f2e",
+    "status": "running",
+    "keywords": "Blue Spring Ride",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
