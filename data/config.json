@@ -191,5 +191,17 @@
     "langs": [],
     "exclude": [],
     "fast": false
+  },
+  {
+    "id": "3j7i291c",
+    "status": "running",
+    "keywords": "costurero mimbre",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
