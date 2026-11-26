@@ -155,17 +155,5 @@
     "langs": [],
     "exclude": [],
     "fast": false
-  },
-  {
-    "id": "2t5jnqnq",
-    "status": "running",
-    "keywords": "アオハライド",
-    "min_price": 0,
-    "max_price": 1000,
-    "source": "ambos",
-    "lang_mode": "off",
-    "langs": [],
-    "exclude": [],
-    "fast": false
   }
 ]
