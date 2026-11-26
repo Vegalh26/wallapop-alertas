@@ -107,5 +107,17 @@
     "langs": [],
     "exclude": [],
     "fast": false
+  },
+  {
+    "id": "nxthc6jt",
+    "status": "running",
+    "keywords": "Ao haru ride",
+    "min_price": 0,
+    "max_price": 1000,
+    "source": "ambos",
+    "lang_mode": "off",
+    "langs": [],
+    "exclude": [],
+    "fast": false
   }
 ]
